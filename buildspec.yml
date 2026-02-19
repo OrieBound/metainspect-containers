@@ -8,7 +8,7 @@ phases:
     commands:
       - set -euo pipefail
       - echo "Installing jq"
-      - yum install -y jq >/dev/null
+      - if command -v yum >/dev/null 2>&1; then yum install -y jq >/dev/null; elif command -v apt-get >/dev/null 2>&1; then apt-get update >/dev/null && apt-get install -y jq >/dev/null; else echo "No supported package manager found for jq install"; exit 1; fi
 
   pre_build:
     commands:
