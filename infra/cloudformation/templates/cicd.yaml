@@ -76,13 +76,16 @@ Resources:
               - Effect: Allow
                 Action:
                   - ecr:BatchCheckLayerAvailability
+                  - ecr:BatchDeleteImage
                   - ecr:CompleteLayerUpload
                   - ecr:CreateRepository
+                  - ecr:DeleteRepository
                   - ecr:TagResource
                   - ecr:UntagResource
                   - ecr:DescribeImages
                   - ecr:DescribeRepositories
                   - ecr:InitiateLayerUpload
+                  - ecr:ListImages
                   - ecr:PutImage
                   - ecr:UploadLayerPart
                   - ecr:GetDownloadUrlForLayer
