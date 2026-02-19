@@ -1,0 +1,10 @@
+[
+  {"ParameterKey":"ProjectName","ParameterValue":"metainspect"},
+  {"ParameterKey":"EnvironmentName","ParameterValue":"dev"},
+  {"ParameterKey":"ConnectionArn","ParameterValue":"arn:aws:codeconnections:us-east-1:225989340975:connection/ead82324-678c-46e4-8968-1c42ac2da867"},
+  {"ParameterKey":"FullRepositoryId","ParameterValue":"OrieBound/metainspect-containers"},
+  {"ParameterKey":"BranchName","ParameterValue":"main"},
+  {"ParameterKey":"StackName","ParameterValue":"metainspect-root-dev"},
+  {"ParameterKey":"CloudFormationBucketName","ParameterValue":"cloudformation-oriebound"},
+  {"ParameterKey":"CloudFormationTemplatePrefix","ParameterValue":"metainspect/templates"}
+]

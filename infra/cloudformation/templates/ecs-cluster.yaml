@@ -1,0 +1,48 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: ECS cluster for MetaInspect service.
+
+Parameters:
+  ProjectName:
+    Type: String
+  EnvironmentName:
+    Type: String
+  CreateServiceLinkedRole:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+
+Conditions:
+  CreateServiceLinkedRoleCondition: !Equals [!Ref CreateServiceLinkedRole, 'true']
+
+Resources:
+  EcsServiceLinkedRole:
+    Type: AWS::IAM::ServiceLinkedRole
+    Condition: CreateServiceLinkedRoleCondition
+    Properties:
+      AWSServiceName: ecs.amazonaws.com
+      Description: Service-linked role for Amazon ECS.
+
+  Cluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Sub '${ProjectName}-cluster-${EnvironmentName}'
+      CapacityProviders:
+        - FARGATE
+        - FARGATE_SPOT
+      ClusterSettings:
+        - Name: containerInsights
+          Value: enabled
+      Configuration:
+        ExecuteCommandConfiguration:
+          Logging: DEFAULT
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+Outputs:
+  ClusterName:
+    Value: !Ref Cluster
+  ClusterArn:
+    Value: !GetAtt Cluster.Arn

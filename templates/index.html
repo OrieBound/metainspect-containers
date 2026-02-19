@@ -1,0 +1,335 @@
+<!doctype html>
+<html data-theme="dark">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>MetaInspect - Containers | Upload</title>
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('metainspect-containers-theme');
+          document.documentElement.setAttribute('data-theme', t === 'light' ? 'light' : 'dark');
+        } catch (e) {}
+      })();
+    </script>
+    <link rel="icon" type="image/png" href="/static/favicon.png">
+    <link rel="stylesheet" href="/static/css/style.css">
+  </head>
+  <body>
+    <div class="container">
+      <header class="site-header">
+        <button id="themeToggle" class="theme-toggle" type="button" role="switch" aria-checked="false" aria-label="Switch to light theme" title="Toggle theme">
+          <span class="theme-toggle-track" aria-hidden="true">
+            <span class="theme-toggle-icon theme-toggle-icon-light">☀</span>
+            <span class="theme-toggle-icon theme-toggle-icon-dark">☾</span>
+            <span class="theme-toggle-thumb"></span>
+          </span>
+        </button>
+        <h1>MetaInspect - Containers</h1>
+        <p class="tagline">Extract and analyze image metadata securely.</p>
+      </header>
+
+      <main>
+        <section class="card">
+          {% if error %}
+            <div class="error-banner">
+              <strong>Error:</strong> {{ error }}
+            </div>
+          {% endif %}
+          <form class="upload-form" action="/upload" method="post" enctype="multipart/form-data">
+            <label class="upload-zone" for="uploadFile">
+              <input id="uploadFile" type="file" name="file" accept="image/jpeg,image/png" required />
+              <span id="uploadZoneTitle" class="upload-zone-title">Drop image here or click to browse</span>
+              <span id="uploadZoneSubtitle" class="upload-zone-subtitle">JPG or PNG up to your configured upload limit</span>
+              <span class="upload-zone-hint">No image data is displayed publicly; sensitive metadata is redacted.</span>
+            </label>
+            <p id="fileStatus" class="file-status" aria-live="polite">No file selected.</p>
+            <div class="actions">
+              <button id="submitBtn" type="submit" class="btn">View Metadata</button>
+            </div>
+          </form>
+          <p class="note">Supported formats: JPG, PNG. Max size configurable via <code>MAX_UPLOAD_BYTES</code>.</p>
+          <section class="runtime-spotlight" aria-labelledby="runtime-heading">
+            <div class="runtime-spotlight-header">
+              <h3 id="runtime-heading">Live Runtime Instance Info</h3>
+              <button id="runtimeRefresh" type="button" class="runtime-refresh">Refresh</button>
+            </div>
+            <p class="runtime-text">
+              Live runtime metadata highlights active task placement behind the load balancer for UAT and portfolio demos.
+            </p>
+            <div class="runtime-grid">
+              <div class="runtime-row"><span class="runtime-label">Hostname</span><code id="runtime-hostname">-</code></div>
+              <div class="runtime-row"><span class="runtime-label">Private IP</span><code id="runtime-private_ip">-</code></div>
+              <div class="runtime-row"><span class="runtime-label">Availability Zone</span><code id="runtime-availability_zone">-</code></div>
+              <div class="runtime-row"><span class="runtime-label">Cluster</span><code id="runtime-cluster">-</code></div>
+              <div class="runtime-row"><span class="runtime-label">Task ARN</span><code id="runtime-task_arn">-</code></div>
+              <div class="runtime-row"><span class="runtime-label">Container ID</span><code id="runtime-container_id">-</code></div>
+              <div class="runtime-row"><span class="runtime-label">Source</span><code id="runtime-source">-</code></div>
+              <div class="runtime-row"><span class="runtime-label">Updated</span><code id="runtime-timestamp_utc">-</code></div>
+            </div>
+            <p id="runtimeStatus" class="runtime-status" aria-live="polite">Runtime info not loaded yet.</p>
+          </section>
+          <section class="accordion-group" aria-label="Project details">
+            <article class="accordion-item">
+              <button class="accordion-toggle" type="button" aria-expanded="false" aria-controls="accordion-deployment" id="accordion-deployment-btn">
+                Deployment Approach
+              </button>
+              <div class="accordion-content" id="accordion-deployment" role="region" aria-labelledby="accordion-deployment-btn">
+                <div class="project-panel">
+                  <ul>
+                    <li>This implementation includes Amazon EFS to demonstrate a shared-storage architecture pattern for containerized workloads.</li>
+                    <li>The same system can be deployed with other storage options based on cost, scale, and operational requirements.</li>
+                    <li>For standalone metadata-processing flows, ephemeral task storage and/or Amazon S3 are strong alternatives while preserving ECS + ALB scaling behavior.</li>
+                  </ul>
+                </div>
+              </div>
+            </article>
+
+            <article class="accordion-item">
+              <button class="accordion-toggle" type="button" aria-expanded="false" aria-controls="accordion-architecture" id="accordion-architecture-btn">
+                Architecture Overview
+              </button>
+              <div class="accordion-content" id="accordion-architecture" role="region" aria-labelledby="accordion-architecture-btn">
+                <div class="project-panel">
+                  <ul>
+                    <li>Containerized web app using Gunicorn + Flask for upload processing.</li>
+                    <li>Accepted formats are JPG/JPEG and PNG, validated before processing.</li>
+                    <li>Metadata is extracted and sensitive keys are redacted in the returned JSON response.</li>
+                    <li>Uploads are written to shared storage only for processing and then removed by default after response.</li>
+                    <li>Build and push custom image to Amazon ECR.</li>
+                    <li>Deploy Amazon ECS Fargate service behind an Application Load Balancer (ALB).</li>
+                    <li>Enable ECS Service Auto Scaling with target tracking on average CPU utilization.</li>
+                    <li>Use Amazon EFS as writable shared persistent storage across running tasks.</li>
+                    <li>Route traffic through ALB to scale tasks horizontally based on workload.</li>
+                    <li>Run load testing to validate scale-out and scale-in behavior under traffic.</li>
+                  </ul>
+                </div>
+              </div>
+            </article>
+
+            <article class="accordion-item">
+              <button class="accordion-toggle" type="button" aria-expanded="false" aria-controls="accordion-services" id="accordion-services-btn">
+                AWS Services Used
+              </button>
+              <div class="accordion-content" id="accordion-services" role="region" aria-labelledby="accordion-services-btn">
+                <div class="project-panel">
+                  <ul class="service-list">
+                    <li>Amazon ECS (Fargate)</li>
+                    <li>Amazon Elastic Container Registry (ECR)</li>
+                    <li>Application Load Balancer (ALB)</li>
+                    <li>Amazon CloudWatch</li>
+                    <li>AWS IAM</li>
+                    <li>Amazon Elastic File System (EFS)</li>
+                  </ul>
+                </div>
+              </div>
+            </article>
+
+            <article class="accordion-item">
+              <button class="accordion-toggle" type="button" aria-expanded="false" aria-controls="accordion-samples" id="accordion-samples-btn">
+                Sample Images
+              </button>
+              <div class="accordion-content" id="accordion-samples" role="region" aria-labelledby="accordion-samples-btn">
+                <div class="project-panel sample-images-panel">
+                  <p class="sample-images-text">
+                    Download curated sample images with richer metadata for demo and validation purposes.
+                    Many real-world images do not retain complete metadata due to platform filtering,
+                    compression, or privacy controls, so this bundle provides stronger examples.
+                    For secure distribution, this download is delivered through time-limited Amazon S3 presigned URLs.
+                  </p>
+                  <a class="sample-images-link" href="/sample-images/download">
+                    Download Sample Images (.zip)
+                  </a>
+                </div>
+              </div>
+            </article>
+          </section>
+        </section>
+      </main>
+
+      <footer class="site-footer">
+        <small>MetaInspect - Containers</small>
+        <nav class="footer-links" aria-label="External links">
+          <a href="https://www.oriehulan.com" target="_blank" rel="noopener noreferrer" aria-label="Website">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M12 2a10 10 0 1 0 10 10A10.01 10.01 0 0 0 12 2Zm6.94 9h-3.02a15.8 15.8 0 0 0-1.33-5.02A8.02 8.02 0 0 1 18.94 11Zm-6.94 9c-.89 0-2.36-2.32-2.91-6h5.82c-.55 3.68-2.02 6-2.91 6Zm-3.2-8a22.8 22.8 0 0 1 .11-2h6.18a22.8 22.8 0 0 1 .11 2 22.8 22.8 0 0 1-.11 2H8.91a22.8 22.8 0 0 1-.11-2Zm-4.74 0a8.02 8.02 0 0 1 4.35-5.02A15.8 15.8 0 0 0 7.08 11Zm0 2h3.02a15.8 15.8 0 0 0 1.33 5.02A8.02 8.02 0 0 1 4.06 14Zm9.53 5.02A15.8 15.8 0 0 0 15.92 14h3.02a8.02 8.02 0 0 1-5.35 5.02ZM14.91 8H9.09C9.64 4.32 11.11 2 12 2s2.36 2.32 2.91 6Z"/>
+            </svg>
+            <span>Website</span>
+          </a>
+          <a href="https://github.com/OrieBound/" target="_blank" rel="noopener noreferrer" aria-label="GitHub">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M12 .5A12 12 0 0 0 8.2 23.9c.6.1.8-.2.8-.6v-2c-3.3.7-4-1.4-4-1.4-.5-1.3-1.2-1.6-1.2-1.6-1-.7.1-.7.1-.7 1 .1 1.7 1.1 1.7 1.1 1 .1 1.9-.7 2.3-1.1.1-.7.4-1.1.7-1.4-2.7-.3-5.6-1.4-5.6-6.2 0-1.4.5-2.5 1.2-3.4-.1-.3-.5-1.6.1-3.3 0 0 1-.3 3.5 1.3a11.8 11.8 0 0 1 6.4 0c2.5-1.6 3.5-1.3 3.5-1.3.6 1.7.2 3 .1 3.3.8.9 1.2 2 1.2 3.4 0 4.8-2.9 5.9-5.6 6.2.4.3.8 1 .8 2.1v3.1c0 .3.2.7.8.6A12 12 0 0 0 12 .5Z"/>
+            </svg>
+            <span>GitHub</span>
+          </a>
+        </nav>
+      </footer>
+    </div>
+
+    <script>
+      (function () {
+        const input = document.getElementById('uploadFile');
+        const status = document.getElementById('fileStatus');
+        const title = document.getElementById('uploadZoneTitle');
+        const subtitle = document.getElementById('uploadZoneSubtitle');
+        const submitBtn = document.getElementById('submitBtn');
+        const form = document.querySelector('.upload-form');
+        if (!input || !status || !title || !subtitle || !submitBtn || !form) return;
+
+        function resetState() {
+          form.classList.remove('has-error');
+          form.classList.remove('has-file');
+          status.textContent = 'No file selected.';
+          title.textContent = 'Drop image here or click to browse';
+          subtitle.textContent = 'JPG or PNG up to your configured upload limit';
+          submitBtn.textContent = 'View Metadata';
+          submitBtn.disabled = false;
+        }
+
+        function setSelectedState(file) {
+          form.classList.remove('has-error');
+          form.classList.add('has-file');
+          status.textContent = 'Selected: ' + file.name;
+          title.textContent = 'File selected and ready';
+          subtitle.textContent = 'You can now submit to view metadata';
+          submitBtn.textContent = 'View Metadata';
+          submitBtn.disabled = false;
+        }
+
+        function setInvalidState() {
+          form.classList.remove('has-file');
+          form.classList.add('has-error');
+          status.textContent = 'Unsupported file type. Please upload a JPG or PNG image.';
+          title.textContent = 'Unsupported file selected';
+          subtitle.textContent = 'Choose a JPG or PNG file to continue';
+          submitBtn.textContent = 'View Metadata';
+          submitBtn.disabled = true;
+        }
+
+        function isAllowedFile(file) {
+          const name = (file.name || '').toLowerCase();
+          const extAllowed = name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.png');
+          const mime = (file.type || '').toLowerCase();
+          const mimeAllowed =
+            mime === '' ||
+            mime === 'image/jpeg' ||
+            mime === 'image/jpg' ||
+            mime === 'image/pjpeg' ||
+            mime === 'image/png' ||
+            (extAllowed && mime.startsWith('image/'));
+          return extAllowed && mimeAllowed;
+        }
+
+        input.addEventListener('change', function () {
+          if (input.files && input.files.length > 0) {
+            const selectedFile = input.files[0];
+            if (!isAllowedFile(selectedFile)) {
+              setInvalidState();
+              return;
+            }
+            setSelectedState(selectedFile);
+            return;
+          }
+          resetState();
+        });
+
+        form.addEventListener('submit', function (event) {
+          if (!input.files || input.files.length === 0) return;
+          if (!isAllowedFile(input.files[0])) {
+            event.preventDefault();
+            setInvalidState();
+          }
+        });
+
+        const accordionButtons = document.querySelectorAll('.accordion-toggle');
+        accordionButtons.forEach(function (button) {
+          button.addEventListener('click', function () {
+            const targetId = button.getAttribute('aria-controls');
+            const content = targetId ? document.getElementById(targetId) : null;
+            if (!content) return;
+
+            const isExpanded = button.getAttribute('aria-expanded') === 'true';
+            button.setAttribute('aria-expanded', isExpanded ? 'false' : 'true');
+
+            if (isExpanded) {
+              content.style.maxHeight = '0px';
+              return;
+            }
+
+            content.style.maxHeight = content.scrollHeight + 'px';
+          });
+        });
+
+        const runtimeFields = [
+          'hostname',
+          'private_ip',
+          'availability_zone',
+          'cluster',
+          'task_arn',
+          'container_id',
+          'source',
+          'timestamp_utc'
+        ];
+        const runtimeRefreshBtn = document.getElementById('runtimeRefresh');
+        const runtimeStatus = document.getElementById('runtimeStatus');
+        function setRuntimeValue(key, value) {
+          const el = document.getElementById('runtime-' + key);
+          if (!el) return;
+          el.textContent = value || '-';
+        }
+
+        function loadRuntime() {
+          if (runtimeStatus) runtimeStatus.textContent = 'Loading runtime info...';
+          fetch('/runtime', { cache: 'no-store' })
+            .then(function (resp) {
+              if (!resp.ok) throw new Error('HTTP ' + resp.status);
+              return resp.json();
+            })
+            .then(function (data) {
+              runtimeFields.forEach(function (key) {
+                setRuntimeValue(key, data[key]);
+              });
+              if (runtimeStatus) runtimeStatus.textContent = data.note || 'Runtime info loaded.';
+            })
+            .catch(function (err) {
+              if (runtimeStatus) runtimeStatus.textContent = 'Failed to load runtime info: ' + err.message;
+            });
+        }
+
+        if (runtimeRefreshBtn) {
+          runtimeRefreshBtn.addEventListener('click', loadRuntime);
+        }
+        loadRuntime();
+        setInterval(loadRuntime, 30000);
+        resetState();
+      })();
+    </script>
+    <script>
+      (function () {
+        const root = document.documentElement;
+        const btn = document.getElementById('themeToggle');
+        if (!btn) return;
+
+        function applyTheme(theme) {
+          root.setAttribute('data-theme', theme);
+          const isDark = theme !== 'light';
+          btn.setAttribute('aria-checked', isDark ? 'false' : 'true');
+          btn.setAttribute('aria-label', isDark ? 'Switch to light theme' : 'Switch to dark theme');
+          btn.setAttribute('title', isDark ? 'Light mode' : 'Dark mode');
+        }
+
+        const initial = root.getAttribute('data-theme') || 'dark';
+        applyTheme(initial);
+
+        btn.addEventListener('click', function () {
+          const current = root.getAttribute('data-theme') || 'dark';
+          const next = current === 'light' ? 'dark' : 'light';
+          applyTheme(next);
+          try {
+            localStorage.setItem('metainspect-containers-theme', next);
+          } catch (e) {}
+        });
+      })();
+    </script>
+  </body>
+</html>

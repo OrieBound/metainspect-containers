@@ -1,0 +1,6 @@
+[
+  {"ParameterKey":"ProjectName","ParameterValue":"metainspect"},
+  {"ParameterKey":"EnvironmentName","ParameterValue":"dev"},
+  {"ParameterKey":"ContainerImageTag","ParameterValue":"v0.1.0"},
+  {"ParameterKey":"DeployService","ParameterValue":"false"}
+]

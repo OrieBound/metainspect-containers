@@ -1,0 +1,220 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: ECS task definition + service for MetaInspect.
+
+Parameters:
+  ProjectName:
+    Type: String
+  EnvironmentName:
+    Type: String
+  ClusterName:
+    Type: String
+  ServiceName:
+    Type: String
+  EcrRepositoryUri:
+    Type: String
+  ContainerImageTag:
+    Type: String
+  ContainerPort:
+    Type: Number
+  ServiceSubnetIds:
+    Type: CommaDelimitedList
+  ServiceSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+  TargetGroupArn:
+    Type: String
+  DesiredCount:
+    Type: Number
+  CpuUnits:
+    Type: Number
+  MemoryMiB:
+    Type: Number
+  MaxUploadBytes:
+    Type: Number
+  RedactionMode:
+    Type: String
+    AllowedValues: ['true', 'false']
+  DeleteAfterProcess:
+    Type: String
+    AllowedValues: ['true', 'false']
+  EnableEfs:
+    Type: String
+    AllowedValues: ['true', 'false']
+  FileSystemId:
+    Type: String
+    Default: ''
+  AccessPointId:
+    Type: String
+    Default: ''
+  LogRetentionDays:
+    Type: Number
+  SampleImagesObjectArn:
+    Type: String
+    Description: S3 object ARN for downloadable sample images ZIP.
+
+Conditions:
+  UseEfsCondition: !Equals [!Ref EnableEfs, 'true']
+  UseNoEfsCondition: !Not [!Equals [!Ref EnableEfs, 'true']]
+
+Resources:
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/ecs/${ProjectName}-${EnvironmentName}'
+      RetentionInDays: !Ref LogRetentionDays
+
+  TaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+
+  TaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: efs-client-access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - elasticfilesystem:ClientMount
+                  - elasticfilesystem:ClientWrite
+                  - elasticfilesystem:ClientRootAccess
+                Resource: '*'
+        - PolicyName: sample-images-s3-read
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                Resource: !Ref SampleImagesObjectArn
+
+  TaskDefinitionWithEfs:
+    Type: AWS::ECS::TaskDefinition
+    Condition: UseEfsCondition
+    Properties:
+      Family: !Sub '${ProjectName}-task-${EnvironmentName}'
+      Cpu: !Ref CpuUnits
+      Memory: !Ref MemoryMiB
+      NetworkMode: awsvpc
+      RequiresCompatibilities: [FARGATE]
+      ExecutionRoleArn: !GetAtt TaskExecutionRole.Arn
+      TaskRoleArn: !GetAtt TaskRole.Arn
+      Volumes:
+        - Name: shared-volume
+          EFSVolumeConfiguration:
+            FilesystemId: !Ref FileSystemId
+            TransitEncryption: ENABLED
+            AuthorizationConfig:
+              AccessPointId: !Ref AccessPointId
+              IAM: ENABLED
+      ContainerDefinitions:
+        - Name: !Sub '${ProjectName}-container'
+          Image: !Sub '${EcrRepositoryUri}:${ContainerImageTag}'
+          Essential: true
+          PortMappings:
+            - ContainerPort: !Ref ContainerPort
+              Protocol: tcp
+          MountPoints:
+            - SourceVolume: shared-volume
+              ContainerPath: /efs/shared
+              ReadOnly: false
+          Environment:
+            - Name: MAX_UPLOAD_BYTES
+              Value: !Sub '${MaxUploadBytes}'
+            - Name: REDACTION_MODE
+              Value: !Ref RedactionMode
+            - Name: DELETE_AFTER_PROCESS
+              Value: !Ref DeleteAfterProcess
+            - Name: SHARED_DIR
+              Value: /efs/shared
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref LogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: ecs
+
+  TaskDefinitionNoEfs:
+    Type: AWS::ECS::TaskDefinition
+    Condition: UseNoEfsCondition
+    Properties:
+      Family: !Sub '${ProjectName}-task-${EnvironmentName}'
+      Cpu: !Ref CpuUnits
+      Memory: !Ref MemoryMiB
+      NetworkMode: awsvpc
+      RequiresCompatibilities: [FARGATE]
+      ExecutionRoleArn: !GetAtt TaskExecutionRole.Arn
+      TaskRoleArn: !GetAtt TaskRole.Arn
+      ContainerDefinitions:
+        - Name: !Sub '${ProjectName}-container'
+          Image: !Sub '${EcrRepositoryUri}:${ContainerImageTag}'
+          Essential: true
+          PortMappings:
+            - ContainerPort: !Ref ContainerPort
+              Protocol: tcp
+          Environment:
+            - Name: MAX_UPLOAD_BYTES
+              Value: !Sub '${MaxUploadBytes}'
+            - Name: REDACTION_MODE
+              Value: !Ref RedactionMode
+            - Name: DELETE_AFTER_PROCESS
+              Value: !Ref DeleteAfterProcess
+            - Name: SHARED_DIR
+              Value: /tmp/metainspect
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref LogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: ecs
+
+  Service:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: !Ref ServiceName
+      Cluster: !Ref ClusterName
+      DesiredCount: !Ref DesiredCount
+      LaunchType: FARGATE
+      PlatformVersion: LATEST
+      HealthCheckGracePeriodSeconds: 60
+      EnableECSManagedTags: true
+      DeploymentConfiguration:
+        MaximumPercent: 200
+        MinimumHealthyPercent: 100
+      TaskDefinition: !If
+        - UseEfsCondition
+        - !Ref TaskDefinitionWithEfs
+        - !Ref TaskDefinitionNoEfs
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          SecurityGroups:
+            - !Ref ServiceSecurityGroupId
+          Subnets: !Ref ServiceSubnetIds
+      LoadBalancers:
+        - ContainerName: !Sub '${ProjectName}-container'
+          ContainerPort: !Ref ContainerPort
+          TargetGroupArn: !Ref TargetGroupArn
+
+Outputs:
+  ServiceName:
+    Value: !Ref ServiceName
+  ServiceArn:
+    Value: !Ref Service

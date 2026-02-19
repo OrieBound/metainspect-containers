@@ -1,0 +1,231 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: GitHub -> CodePipeline -> CodeBuild pipeline for MetaInspect build/push/deploy.
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: metainspect
+  EnvironmentName:
+    Type: String
+    Default: dev
+  ConnectionArn:
+    Type: String
+    Description: CodeStar Connections ARN for GitHub.
+  FullRepositoryId:
+    Type: String
+    Description: GitHub org/repo (example: orie/metainspect).
+  BranchName:
+    Type: String
+    Default: main
+  StackName:
+    Type: String
+    Default: metainspect-root-dev
+  CloudFormationBucketName:
+    Type: String
+    Description: S3 bucket name used for nested CloudFormation templates.
+  CloudFormationTemplatePrefix:
+    Type: String
+    Default: metainspect/templates
+  BuildImage:
+    Type: String
+    Default: aws/codebuild/standard:7.0
+
+Resources:
+  PipelineArtifactsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      VersioningConfiguration:
+        Status: Enabled
+
+  CodeBuildRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: codebuild-inline
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource:
+                  - !Sub 'arn:aws:s3:::${PipelineArtifactsBucket}'
+                  - !Sub 'arn:aws:s3:::${PipelineArtifactsBucket}/*'
+                  - !Sub 'arn:aws:s3:::${CloudFormationBucketName}'
+                  - !Sub 'arn:aws:s3:::${CloudFormationBucketName}/*'
+              - Effect: Allow
+                Action:
+                  - ecr:GetAuthorizationToken
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:CompleteLayerUpload
+                  - ecr:CreateRepository
+                  - ecr:DescribeImages
+                  - ecr:DescribeRepositories
+                  - ecr:InitiateLayerUpload
+                  - ecr:PutImage
+                  - ecr:UploadLayerPart
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:BatchGetImage
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - cloudformation:DescribeStacks
+                  - cloudformation:CreateStack
+                  - cloudformation:UpdateStack
+                  - cloudformation:CreateChangeSet
+                  - cloudformation:ExecuteChangeSet
+                  - cloudformation:DeleteChangeSet
+                  - cloudformation:DescribeChangeSet
+                  - cloudformation:GetTemplateSummary
+                  - cloudformation:DescribeStackEvents
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - iam:CreateRole
+                  - iam:DeleteRole
+                  - iam:AttachRolePolicy
+                  - iam:DetachRolePolicy
+                  - iam:PutRolePolicy
+                  - iam:DeleteRolePolicy
+                  - iam:GetRole
+                  - iam:PassRole
+                  - iam:TagRole
+                  - iam:UntagRole
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - ec2:*
+                  - elasticloadbalancing:*
+                  - ecs:*
+                  - efs:*
+                  - logs:*
+                  - application-autoscaling:*
+                Resource: '*'
+
+  CodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Sub '${ProjectName}-${EnvironmentName}-build-deploy'
+      ServiceRole: !GetAtt CodeBuildRole.Arn
+      Artifacts:
+        Type: CODEPIPELINE
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: buildspec.yml
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_MEDIUM
+        Image: !Ref BuildImage
+        PrivilegedMode: true
+      LogsConfig:
+        CloudWatchLogs:
+          Status: ENABLED
+
+  CodePipelineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codepipeline.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: codepipeline-inline
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:PutObject
+                  - s3:ListBucket
+                Resource:
+                  - !Sub 'arn:aws:s3:::${PipelineArtifactsBucket}'
+                  - !Sub 'arn:aws:s3:::${PipelineArtifactsBucket}/*'
+              - Effect: Allow
+                Action:
+                  - codebuild:BatchGetBuilds
+                  - codebuild:StartBuild
+                Resource: !GetAtt CodeBuildProject.Arn
+              - Effect: Allow
+                Action:
+                  - codestar-connections:UseConnection
+                Resource: !Ref ConnectionArn
+
+  Pipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      Name: !Sub '${ProjectName}-${EnvironmentName}-pipeline'
+      RoleArn: !GetAtt CodePipelineRole.Arn
+      ArtifactStore:
+        Type: S3
+        Location: !Ref PipelineArtifactsBucket
+      Stages:
+        - Name: Source
+          Actions:
+            - Name: GitHubSource
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Provider: CodeStarSourceConnection
+                Version: '1'
+              OutputArtifacts:
+                - Name: SourceOutput
+              Configuration:
+                ConnectionArn: !Ref ConnectionArn
+                FullRepositoryId: !Ref FullRepositoryId
+                BranchName: !Ref BranchName
+                DetectChanges: true
+              RunOrder: 1
+        - Name: BuildAndDeploy
+          Actions:
+            - Name: CodeBuildRun
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: '1'
+              InputArtifacts:
+                - Name: SourceOutput
+              Configuration:
+                ProjectName: !Ref CodeBuildProject
+                EnvironmentVariables: !Sub |
+                  [
+                    {"name":"AWS_REGION","value":"${AWS::Region}","type":"PLAINTEXT"},
+                    {"name":"STACK_NAME","value":"${StackName}","type":"PLAINTEXT"},
+                    {"name":"PROJECT_NAME","value":"${ProjectName}","type":"PLAINTEXT"},
+                    {"name":"ENVIRONMENT_NAME","value":"${EnvironmentName}","type":"PLAINTEXT"},
+                    {"name":"CFN_BUCKET","value":"${CloudFormationBucketName}","type":"PLAINTEXT"},
+                    {"name":"CFN_TEMPLATE_PREFIX","value":"${CloudFormationTemplatePrefix}","type":"PLAINTEXT"}
+                  ]
+              RunOrder: 1
+
+Outputs:
+  PipelineName:
+    Value: !Ref Pipeline
+  CodeBuildProjectName:
+    Value: !Ref CodeBuildProject
+  ArtifactsBucketName:
+    Value: !Ref PipelineArtifactsBucket
