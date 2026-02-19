@@ -21,10 +21,10 @@ phases:
       - ': "${CFN_BUCKET:?CFN_BUCKET is required}"'
       - CFN_TEMPLATE_PREFIX="${CFN_TEMPLATE_PREFIX:-metainspect/templates}"
       - TEMPLATE_BASE_URL="https://${CFN_BUCKET}.s3.${AWS_REGION}.amazonaws.com/${CFN_TEMPLATE_PREFIX}"
-      - echo "Template base URL: ${TEMPLATE_BASE_URL}"
+      - 'echo "Template base URL: ${TEMPLATE_BASE_URL}"'
       - IMAGE_TAG="${CODEBUILD_RESOLVED_SOURCE_VERSION:0:12}"
       - if [ -z "${IMAGE_TAG}" ] || [ "${IMAGE_TAG}" = "000000000000" ]; then IMAGE_TAG="v0.1.0"; fi
-      - echo "Image tag: ${IMAGE_TAG}"
+      - 'echo "Image tag: ${IMAGE_TAG}"'
 
       - echo "Syncing nested templates to S3"
       - aws s3 sync infra/cloudformation/templates "s3://${CFN_BUCKET}/${CFN_TEMPLATE_PREFIX}" --delete --region "${AWS_REGION}"
@@ -37,7 +37,7 @@ phases:
       - if [ -z "${REPOSITORY_URI}" ] || [ "${REPOSITORY_URI}" = "None" ]; then echo "RepositoryUri output not found"; exit 1; fi
       - REGISTRY_HOST="${REPOSITORY_URI%%/*}"
       - IMAGE_URI="${REPOSITORY_URI}:${IMAGE_TAG}"
-      - echo "ECR image URI: ${IMAGE_URI}"
+      - 'echo "ECR image URI: ${IMAGE_URI}"'
       - aws ecr get-login-password --region "${AWS_REGION}" | docker login --username AWS --password-stdin "${REGISTRY_HOST}"
 
   build:
