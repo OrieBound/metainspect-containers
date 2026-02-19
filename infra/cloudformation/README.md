@@ -40,25 +40,29 @@ This directory keeps infrastructure-as-code artifacts for MetaInspect.
 aws s3 cp infra/cloudformation/templates s3://<bucket>/cloudformation/templates --recursive
 
 # bootstrap create (no ECS service yet)
-aws cloudformation create-stack \
+aws cloudformation deploy \
   --stack-name metainspect-dev \
-  --template-body file://infra/cloudformation/root.yaml \
-  --parameters file://infra/cloudformation/params/dev.json \
-  --capabilities CAPABILITY_NAMED_IAM
+  --template-file infra/cloudformation/root.yaml \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --parameter-overrides \
+    ProjectName=metainspect \
+    EnvironmentName=dev \
+    ContainerImageTag=v0.1.0 \
+    DeployService=false
 
 # after pushing ECR image tag, enable ECS service
-aws cloudformation update-stack \
+aws cloudformation deploy \
   --stack-name metainspect-dev \
-  --template-body file://infra/cloudformation/root.yaml \
-  --parameters \
-    ParameterKey=ProjectName,UsePreviousValue=true \
-    ParameterKey=EnvironmentName,UsePreviousValue=true \
-    ParameterKey=ContainerImageTag,ParameterValue=v0.1.0 \
-    ParameterKey=DeployService,ParameterValue=true \
-  --capabilities CAPABILITY_NAMED_IAM
+  --template-file infra/cloudformation/root.yaml \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --parameter-overrides \
+    ProjectName=metainspect \
+    EnvironmentName=dev \
+    ContainerImageTag=v0.1.0 \
+    DeployService=true
 ```
 
-Use `aws cloudformation update-stack` with the same parameters file for changes.
+Use `aws cloudformation deploy` with the same parameter set for changes.
 
 ## One-Command Pipeline (Local)
 
