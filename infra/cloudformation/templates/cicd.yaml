@@ -78,6 +78,8 @@ Resources:
                   - ecr:BatchCheckLayerAvailability
                   - ecr:CompleteLayerUpload
                   - ecr:CreateRepository
+                  - ecr:TagResource
+                  - ecr:UntagResource
                   - ecr:DescribeImages
                   - ecr:DescribeRepositories
                   - ecr:InitiateLayerUpload
