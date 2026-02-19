@@ -71,41 +71,11 @@ Resources:
                   - !Sub 'arn:aws:s3:::${CloudFormationBucketName}/*'
               - Effect: Allow
                 Action:
-                  - ecr:GetAuthorizationToken
+                  - ecr:*
                 Resource: '*'
               - Effect: Allow
                 Action:
-                  - ecr:BatchCheckLayerAvailability
-                  - ecr:BatchDeleteImage
-                  - ecr:CompleteLayerUpload
-                  - ecr:CreateRepository
-                  - ecr:DeleteRepository
-                  - ecr:PutLifecyclePolicy
-                  - ecr:PutImageScanningConfiguration
-                  - ecr:PutImageTagMutability
-                  - ecr:TagResource
-                  - ecr:UntagResource
-                  - ecr:DescribeImages
-                  - ecr:DescribeRepositories
-                  - ecr:InitiateLayerUpload
-                  - ecr:ListImages
-                  - ecr:PutImage
-                  - ecr:UploadLayerPart
-                  - ecr:GetDownloadUrlForLayer
-                  - ecr:BatchGetImage
-                Resource: '*'
-              - Effect: Allow
-                Action:
-                  - cloudformation:DescribeStacks
-                  - cloudformation:CreateStack
-                  - cloudformation:UpdateStack
-                  - cloudformation:DeleteStack
-                  - cloudformation:CreateChangeSet
-                  - cloudformation:ExecuteChangeSet
-                  - cloudformation:DeleteChangeSet
-                  - cloudformation:DescribeChangeSet
-                  - cloudformation:GetTemplateSummary
-                  - cloudformation:DescribeStackEvents
+                  - cloudformation:*
                 Resource: '*'
               - Effect: Allow
                 Action:
