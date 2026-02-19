@@ -79,6 +79,7 @@ Resources:
                 Resource: '*'
               - Effect: Allow
                 Action:
+                  - iam:CreateServiceLinkedRole
                   - iam:CreateRole
                   - iam:DeleteRole
                   - iam:AttachRolePolicy
