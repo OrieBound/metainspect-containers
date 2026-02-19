@@ -13,7 +13,7 @@ Parameters:
     Description: CodeStar Connections ARN for GitHub.
   FullRepositoryId:
     Type: String
-    Description: GitHub org/repo (example: orie/metainspect).
+    Description: "GitHub org/repo (example: orie/metainspect)."
   BranchName:
     Type: String
     Default: main
@@ -91,6 +91,7 @@ Resources:
                   - cloudformation:DescribeStacks
                   - cloudformation:CreateStack
                   - cloudformation:UpdateStack
+                  - cloudformation:DeleteStack
                   - cloudformation:CreateChangeSet
                   - cloudformation:ExecuteChangeSet
                   - cloudformation:DeleteChangeSet
