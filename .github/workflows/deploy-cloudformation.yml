@@ -1,0 +1,49 @@
+name: Deploy CloudFormation
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: Container image tag to build/push/deploy
+        required: true
+        default: v0.1.0
+      stack_name:
+        description: CloudFormation stack name
+        required: true
+        default: metainspect-root-dev
+      environment_name:
+        description: Environment name
+        required: true
+        default: dev
+      project_name:
+        description: Project name
+        required: true
+        default: metainspect
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ secrets.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+
+      - name: Run full deploy pipeline
+        env:
+          STACK_NAME: ${{ github.event.inputs.stack_name }}
+          PROJECT_NAME: ${{ github.event.inputs.project_name }}
+          ENVIRONMENT_NAME: ${{ github.event.inputs.environment_name }}
+          CONTAINER_IMAGE_TAG: ${{ github.event.inputs.image_tag }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          CFN_BUCKET: ${{ secrets.CFN_BUCKET }}
+          CFN_TEMPLATE_PREFIX: metainspect/templates
+        run: ./infra/cloudformation/scripts/deploy_full.sh

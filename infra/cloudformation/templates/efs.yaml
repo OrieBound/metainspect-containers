@@ -1,0 +1,83 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: EFS file system, mount targets, and access point for MetaInspect.
+
+Parameters:
+  ProjectName:
+    Type: String
+  EnvironmentName:
+    Type: String
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+  ServiceSubnetIds:
+    Type: CommaDelimitedList
+  ServiceSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+  EfsPerformanceMode:
+    Type: String
+    AllowedValues: [generalPurpose, maxIO]
+  EfsThroughputMode:
+    Type: String
+    AllowedValues: [bursting, provisioned, elastic]
+
+Resources:
+  EfsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Sub '${ProjectName} EFS SG'
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 2049
+          ToPort: 2049
+          SourceSecurityGroupId: !Ref ServiceSecurityGroupId
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+
+  FileSystem:
+    Type: AWS::EFS::FileSystem
+    Properties:
+      Encrypted: true
+      PerformanceMode: !Ref EfsPerformanceMode
+      ThroughputMode: !Ref EfsThroughputMode
+      FileSystemTags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-efs-${EnvironmentName}'
+
+  MountTargetA:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId: !Ref FileSystem
+      SubnetId: !Select [0, !Ref ServiceSubnetIds]
+      SecurityGroups:
+        - !Ref EfsSecurityGroup
+
+  MountTargetB:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId: !Ref FileSystem
+      SubnetId: !Select [1, !Ref ServiceSubnetIds]
+      SecurityGroups:
+        - !Ref EfsSecurityGroup
+
+  AccessPoint:
+    Type: AWS::EFS::AccessPoint
+    Properties:
+      FileSystemId: !Ref FileSystem
+      PosixUser:
+        Uid: '1000'
+        Gid: '1000'
+      RootDirectory:
+        Path: /metainspect
+        CreationInfo:
+          OwnerUid: '1000'
+          OwnerGid: '1000'
+          Permissions: '0755'
+
+Outputs:
+  FileSystemId:
+    Value: !Ref FileSystem
+  AccessPointId:
+    Value: !Ref AccessPoint
+  EfsSecurityGroupId:
+    Value: !Ref EfsSecurityGroup

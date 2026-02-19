@@ -1,0 +1,157 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: MetaInspect root nested stack with fixed defaults and minimal user inputs.
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Core Parameters
+        Parameters:
+          - ProjectName
+          - EnvironmentName
+          - TemplateBaseUrl
+          - ContainerImageTag
+          - DeployService
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: metainspect
+    AllowedPattern: '^[a-z0-9-]+$'
+  EnvironmentName:
+    Type: String
+    Default: dev
+    AllowedPattern: '^[a-z0-9-]+$'
+  TemplateBaseUrl:
+    Type: String
+    Default: https://cloudformation-oriebound.s3.us-east-1.amazonaws.com/metainspect/templates
+    Description: Base HTTPS URL where nested templates are uploaded.
+  ContainerImageTag:
+    Type: String
+    Default: bootstrap
+    AllowedPattern: '.+'
+    ConstraintDescription: ContainerImageTag cannot be empty.
+    Description: Container image tag in ECR. Ignored when DeployService=false.
+  DeployService:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+    Description: Set true only after the ECR image tag exists.
+
+Conditions:
+  DeployServiceCondition: !Equals [!Ref DeployService, 'true']
+
+Resources:
+  NetworkStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub '${TemplateBaseUrl}/network.yaml'
+      Parameters:
+        ProjectName: !Ref ProjectName
+        EnvironmentName: !Ref EnvironmentName
+        VpcCidr: 10.42.0.0/16
+        PublicSubnetACidr: 10.42.0.0/24
+        PublicSubnetBCidr: 10.42.1.0/24
+        ServiceSubnetACidr: 10.42.10.0/24
+        ServiceSubnetBCidr: 10.42.11.0/24
+
+  EcrStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub '${TemplateBaseUrl}/ecr.yaml'
+      Parameters:
+        ProjectName: !Ref ProjectName
+        EnvironmentName: !Ref EnvironmentName
+
+  ClusterStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub '${TemplateBaseUrl}/ecs-cluster.yaml'
+      Parameters:
+        ProjectName: !Ref ProjectName
+        EnvironmentName: !Ref EnvironmentName
+        CreateServiceLinkedRole: 'false'
+
+  AlbStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub '${TemplateBaseUrl}/alb.yaml'
+      Parameters:
+        ProjectName: !Ref ProjectName
+        EnvironmentName: !Ref EnvironmentName
+        VpcId: !GetAtt NetworkStack.Outputs.VpcId
+        PublicSubnetIds: !GetAtt NetworkStack.Outputs.PublicSubnetIds
+        ServiceSubnetIds: !GetAtt NetworkStack.Outputs.ServiceSubnetIds
+        ContainerPort: '80'
+        HealthCheckPath: /health
+
+  EfsStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub '${TemplateBaseUrl}/efs.yaml'
+      Parameters:
+        ProjectName: !Ref ProjectName
+        EnvironmentName: !Ref EnvironmentName
+        VpcId: !GetAtt NetworkStack.Outputs.VpcId
+        ServiceSubnetIds: !GetAtt NetworkStack.Outputs.ServiceSubnetIds
+        ServiceSecurityGroupId: !GetAtt AlbStack.Outputs.ServiceSecurityGroupId
+        EfsPerformanceMode: generalPurpose
+        EfsThroughputMode: bursting
+
+  EcsServiceStack:
+    Type: AWS::CloudFormation::Stack
+    Condition: DeployServiceCondition
+    Properties:
+      TemplateURL: !Sub '${TemplateBaseUrl}/ecs-service.yaml'
+      Parameters:
+        ProjectName: !Ref ProjectName
+        EnvironmentName: !Ref EnvironmentName
+        ClusterName: !GetAtt ClusterStack.Outputs.ClusterName
+        ServiceName: !Sub '${ProjectName}-svc-${EnvironmentName}'
+        EcrRepositoryUri: !GetAtt EcrStack.Outputs.RepositoryUri
+        ContainerImageTag: !Ref ContainerImageTag
+        ContainerPort: '80'
+        ServiceSubnetIds: !GetAtt NetworkStack.Outputs.ServiceSubnetIds
+        ServiceSecurityGroupId: !GetAtt AlbStack.Outputs.ServiceSecurityGroupId
+        TargetGroupArn: !GetAtt AlbStack.Outputs.TargetGroupArn
+        DesiredCount: '2'
+        CpuUnits: '512'
+        MemoryMiB: '1024'
+        MaxUploadBytes: '20971520'
+        RedactionMode: 'true'
+        DeleteAfterProcess: 'true'
+        EnableEfs: 'true'
+        FileSystemId: !GetAtt EfsStack.Outputs.FileSystemId
+        AccessPointId: !GetAtt EfsStack.Outputs.AccessPointId
+        LogRetentionDays: '14'
+        SampleImagesObjectArn: arn:aws:s3:::demo1-oriebound/metainspect/sample_images_metadata.zip
+
+  AutoScalingStack:
+    Type: AWS::CloudFormation::Stack
+    Condition: DeployServiceCondition
+    Properties:
+      TemplateURL: !Sub '${TemplateBaseUrl}/autoscaling.yaml'
+      Parameters:
+        ClusterName: !GetAtt ClusterStack.Outputs.ClusterName
+        ServiceName: !GetAtt EcsServiceStack.Outputs.ServiceName
+        MinCount: '2'
+        MaxCount: '4'
+
+Outputs:
+  RepositoryUri:
+    Value: !GetAtt EcrStack.Outputs.RepositoryUri
+  ClusterName:
+    Value: !GetAtt ClusterStack.Outputs.ClusterName
+  VpcId:
+    Value: !GetAtt NetworkStack.Outputs.VpcId
+  PublicSubnetIds:
+    Value: !GetAtt NetworkStack.Outputs.PublicSubnetIds
+  ServiceSubnetIds:
+    Value: !GetAtt NetworkStack.Outputs.ServiceSubnetIds
+  AlbDnsName:
+    Value: !GetAtt AlbStack.Outputs.AlbDnsName
+  EfsFileSystemId:
+    Value: !GetAtt EfsStack.Outputs.FileSystemId
+  ServiceName:
+    Condition: DeployServiceCondition
+    Value: !GetAtt EcsServiceStack.Outputs.ServiceName

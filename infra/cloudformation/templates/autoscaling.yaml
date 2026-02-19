@@ -1,0 +1,44 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: ECS service autoscaling via CPU target tracking.
+
+Parameters:
+  ClusterName:
+    Type: String
+  ServiceName:
+    Type: String
+  MinCount:
+    Type: Number
+  MaxCount:
+    Type: Number
+  TargetCpuUtilization:
+    Type: Number
+    Default: 60
+
+Resources:
+  ScalableTarget:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Properties:
+      MaxCapacity: !Ref MaxCount
+      MinCapacity: !Ref MinCount
+      ResourceId: !Sub 'service/${ClusterName}/${ServiceName}'
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+
+  CpuTargetTrackingPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: !Sub '${ServiceName}-cpu-target-tracking'
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId: !Ref ScalableTarget
+      TargetTrackingScalingPolicyConfiguration:
+        TargetValue: !Ref TargetCpuUtilization
+        ScaleInCooldown: 120
+        ScaleOutCooldown: 120
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageCPUUtilization
+
+Outputs:
+  AutoScalingTargetId:
+    Value: !Ref ScalableTarget
+  AutoScalingPolicyArn:
+    Value: !Ref CpuTargetTrackingPolicy

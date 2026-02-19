@@ -1,0 +1,63 @@
+version: 0.2
+
+env:
+  shell: bash
+
+phases:
+  install:
+    commands:
+      - set -euo pipefail
+      - echo "Installing jq"
+      - yum install -y jq >/dev/null
+
+  pre_build:
+    commands:
+      - set -euo pipefail
+      - echo "Preparing deployment variables"
+      - ': "${AWS_REGION:?AWS_REGION is required}"'
+      - ': "${STACK_NAME:?STACK_NAME is required}"'
+      - ': "${PROJECT_NAME:?PROJECT_NAME is required}"'
+      - ': "${ENVIRONMENT_NAME:?ENVIRONMENT_NAME is required}"'
+      - ': "${CFN_BUCKET:?CFN_BUCKET is required}"'
+      - CFN_TEMPLATE_PREFIX="${CFN_TEMPLATE_PREFIX:-metainspect/templates}"
+      - TEMPLATE_BASE_URL="https://${CFN_BUCKET}.s3.${AWS_REGION}.amazonaws.com/${CFN_TEMPLATE_PREFIX}"
+      - echo "Template base URL: ${TEMPLATE_BASE_URL}"
+      - IMAGE_TAG="${CODEBUILD_RESOLVED_SOURCE_VERSION:0:12}"
+      - if [ -z "${IMAGE_TAG}" ] || [ "${IMAGE_TAG}" = "000000000000" ]; then IMAGE_TAG="v0.1.0"; fi
+      - echo "Image tag: ${IMAGE_TAG}"
+
+      - echo "Syncing nested templates to S3"
+      - aws s3 sync infra/cloudformation/templates "s3://${CFN_BUCKET}/${CFN_TEMPLATE_PREFIX}" --delete --region "${AWS_REGION}"
+
+      - echo "Bootstrap deploy (DeployService=false)"
+      - aws cloudformation deploy --stack-name "${STACK_NAME}" --template-file infra/cloudformation/root.yaml --capabilities CAPABILITY_NAMED_IAM --region "${AWS_REGION}" --no-fail-on-empty-changeset --parameter-overrides ProjectName="${PROJECT_NAME}" EnvironmentName="${ENVIRONMENT_NAME}" TemplateBaseUrl="${TEMPLATE_BASE_URL}" ContainerImageTag="${IMAGE_TAG}" DeployService=false
+
+      - echo "Resolving ECR repository URI from stack outputs"
+      - REPOSITORY_URI="$(aws cloudformation describe-stacks --stack-name "${STACK_NAME}" --region "${AWS_REGION}" --query "Stacks[0].Outputs[?OutputKey=='RepositoryUri'].OutputValue" --output text | tr -d '[:space:]')"
+      - if [ -z "${REPOSITORY_URI}" ] || [ "${REPOSITORY_URI}" = "None" ]; then echo "RepositoryUri output not found"; exit 1; fi
+      - REGISTRY_HOST="${REPOSITORY_URI%%/*}"
+      - IMAGE_URI="${REPOSITORY_URI}:${IMAGE_TAG}"
+      - echo "ECR image URI: ${IMAGE_URI}"
+      - aws ecr get-login-password --region "${AWS_REGION}" | docker login --username AWS --password-stdin "${REGISTRY_HOST}"
+
+  build:
+    commands:
+      - set -euo pipefail
+      - echo "Building Docker image"
+      - docker build -t "${IMAGE_URI}" .
+
+  post_build:
+    commands:
+      - set -euo pipefail
+      - echo "Pushing Docker image"
+      - docker push "${IMAGE_URI}"
+
+      - echo "Deploying ECS-enabled stack update (DeployService=true)"
+      - aws cloudformation deploy --stack-name "${STACK_NAME}" --template-file infra/cloudformation/root.yaml --capabilities CAPABILITY_NAMED_IAM --region "${AWS_REGION}" --no-fail-on-empty-changeset --parameter-overrides ProjectName="${PROJECT_NAME}" EnvironmentName="${ENVIRONMENT_NAME}" TemplateBaseUrl="${TEMPLATE_BASE_URL}" ContainerImageTag="${IMAGE_TAG}" DeployService=true
+
+      - echo "Build and deploy complete"
+
+artifacts:
+  files:
+    - '**/*'
+  discard-paths: no
