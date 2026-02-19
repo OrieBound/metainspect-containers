@@ -95,7 +95,7 @@ Resources:
                   - ec2:*
                   - elasticloadbalancing:*
                   - ecs:*
-                  - efs:*
+                  - elasticfilesystem:*
                   - logs:*
                   - application-autoscaling:*
                 Resource: '*'
