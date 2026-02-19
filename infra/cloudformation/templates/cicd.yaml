@@ -80,6 +80,9 @@ Resources:
                   - ecr:CompleteLayerUpload
                   - ecr:CreateRepository
                   - ecr:DeleteRepository
+                  - ecr:PutLifecyclePolicy
+                  - ecr:PutImageScanningConfiguration
+                  - ecr:PutImageTagMutability
                   - ecr:TagResource
                   - ecr:UntagResource
                   - ecr:DescribeImages
