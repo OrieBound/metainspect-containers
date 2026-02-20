@@ -18,6 +18,11 @@ htmlcov/
 # Local environment/config
 .env
 .env.*
+.aws/
+*.pem
+*.key
+*.p12
+*.crt
 
 # Build artifacts
 build/

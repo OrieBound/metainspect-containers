@@ -63,16 +63,11 @@
                 </p>
                 <div class="runtime-grid">
                   <div class="runtime-row"><span class="runtime-label">Hostname</span><code id="runtime-hostname">-</code></div>
-                  <div class="runtime-row"><span class="runtime-label">Private IP</span><code id="runtime-private_ip">-</code></div>
-                  <div class="runtime-row"><span class="runtime-label">Availability Zone</span><code id="runtime-availability_zone">-</code></div>
-                  <div class="runtime-row"><span class="runtime-label">Cluster</span><code id="runtime-cluster">-</code></div>
-                  <div class="runtime-row"><span class="runtime-label">Task ARN</span><code id="runtime-task_arn">-</code></div>
-                  <div class="runtime-row"><span class="runtime-label">Container ID</span><code id="runtime-container_id">-</code></div>
                   <div class="runtime-row"><span class="runtime-label">Source</span><code id="runtime-source">-</code></div>
                   <div class="runtime-row"><span class="runtime-label">Region</span><code id="runtime-region">-</code></div>
                   <div class="runtime-row"><span class="runtime-label">Updated</span><code id="runtime-timestamp_utc">-</code></div>
                 </div>
-                <p id="runtimeStatus" class="runtime-status" aria-live="polite">Runtime info not loaded yet.</p>
+                <p id="runtimeStatus" class="runtime-status" aria-live="polite"></p>
               </div>
             </div>
           </section>
@@ -275,11 +270,6 @@
 
         const runtimeFields = [
           'hostname',
-          'private_ip',
-          'availability_zone',
-          'cluster',
-          'task_arn',
-          'container_id',
           'source',
           'region',
           'timestamp_utc'
@@ -303,7 +293,7 @@
               runtimeFields.forEach(function (key) {
                 setRuntimeValue(key, data[key]);
               });
-              if (runtimeStatus) runtimeStatus.textContent = data.note || 'Runtime info loaded.';
+              if (runtimeStatus) runtimeStatus.textContent = '';
             })
             .catch(function (err) {
               if (runtimeStatus) runtimeStatus.textContent = 'Failed to load runtime info: ' + err.message;
