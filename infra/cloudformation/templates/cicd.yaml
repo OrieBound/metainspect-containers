@@ -75,14 +75,25 @@ Resources:
                 Resource: '*'
               - Effect: Allow
                 Action:
+                  - ecr:CreateRepository
+                  - ecr:DeleteRepository
+                  - ecr:DescribeRepositories
+                Resource: '*'
+              - Effect: Allow
+                Action:
                   - ecr:BatchCheckLayerAvailability
                   - ecr:BatchGetImage
                   - ecr:CompleteLayerUpload
                   - ecr:DescribeImages
-                  - ecr:DescribeRepositories
                   - ecr:InitiateLayerUpload
                   - ecr:ListImages
+                  - ecr:PutImageScanningConfiguration
+                  - ecr:PutImageTagMutability
+                  - ecr:PutLifecyclePolicy
                   - ecr:PutImage
+                  - ecr:TagResource
+                  - ecr:UntagResource
+                  - ecr:ListTagsForResource
                   - ecr:UploadLayerPart
                 Resource: !Sub 'arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/${ProjectName}-${EnvironmentName}'
               - Effect: Allow
