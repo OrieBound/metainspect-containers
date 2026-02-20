@@ -63,6 +63,7 @@
                 </p>
                 <div class="runtime-grid">
                   <div class="runtime-row"><span class="runtime-label">Hostname</span><code id="runtime-hostname">-</code></div>
+                  <div class="runtime-row"><span class="runtime-label">Availability Zone</span><code id="runtime-availability_zone">-</code></div>
                   <div class="runtime-row"><span class="runtime-label">Source</span><code id="runtime-source">-</code></div>
                   <div class="runtime-row"><span class="runtime-label">Region</span><code id="runtime-region">-</code></div>
                   <div class="runtime-row"><span class="runtime-label">Updated</span><code id="runtime-timestamp_utc">-</code></div>
@@ -107,6 +108,11 @@
                     <li>Amazon CloudWatch</li>
                     <li>AWS IAM</li>
                     <li>Amazon Elastic File System (EFS)</li>
+                    <li>AWS CodePipeline</li>
+                    <li>AWS CodeBuild</li>
+                    <li>AWS CodeConnections</li>
+                    <li>Amazon S3</li>
+                    <li>AWS CloudFormation</li>
                   </ul>
                 </div>
               </div>
@@ -255,6 +261,7 @@
 
         const runtimeFields = [
           'hostname',
+          'availability_zone',
           'source',
           'region',
           'timestamp_utc'
