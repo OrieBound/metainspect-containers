@@ -29,8 +29,27 @@ phases:
       - echo "Syncing nested templates to S3"
       - aws s3 sync infra/cloudformation/templates "s3://${CFN_BUCKET}/${CFN_TEMPLATE_PREFIX}" --delete --region "${AWS_REGION}"
 
-      - echo "Bootstrap deploy (DeployService=false)"
-      - aws cloudformation deploy --stack-name "${STACK_NAME}" --template-file infra/cloudformation/root.yaml --capabilities CAPABILITY_NAMED_IAM --region "${AWS_REGION}" --no-fail-on-empty-changeset --parameter-overrides ProjectName="${PROJECT_NAME}" EnvironmentName="${ENVIRONMENT_NAME}" TemplateBaseUrl="${TEMPLATE_BASE_URL}" ContainerImageTag="${IMAGE_TAG}" DeployService=false
+      - echo "Checking whether root stack already exists"
+      - if aws cloudformation describe-stacks --stack-name "${STACK_NAME}" --region "${AWS_REGION}" >/dev/null 2>&1; then STACK_EXISTS=true; else STACK_EXISTS=false; fi
+      - 'echo "Stack exists: ${STACK_EXISTS}"'
+      - |
+        if [ "${STACK_EXISTS}" = "false" ]; then
+          echo "First-time bootstrap deploy (DeployService=false)"
+          aws cloudformation deploy \
+            --stack-name "${STACK_NAME}" \
+            --template-file infra/cloudformation/root.yaml \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --region "${AWS_REGION}" \
+            --no-fail-on-empty-changeset \
+            --parameter-overrides \
+              ProjectName="${PROJECT_NAME}" \
+              EnvironmentName="${ENVIRONMENT_NAME}" \
+              TemplateBaseUrl="${TEMPLATE_BASE_URL}" \
+              ContainerImageTag="${IMAGE_TAG}" \
+              DeployService=false
+        else
+          echo "Skipping bootstrap deploy to avoid tearing down ECS service"
+        fi
 
       - echo "Resolving ECR repository URI from stack outputs"
       - REPOSITORY_URI="$(aws cloudformation describe-stacks --stack-name "${STACK_NAME}" --region "${AWS_REGION}" --query "Stacks[0].Outputs[?OutputKey=='RepositoryUri'].OutputValue" --output text | tr -d '[:space:]')"
