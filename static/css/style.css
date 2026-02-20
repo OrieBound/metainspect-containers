@@ -305,6 +305,10 @@ main {
   gap: 10px;
 }
 
+.runtime-accordion {
+  margin-top: 14px;
+}
+
 .runtime-spotlight-header {
   display: flex;
   align-items: center;
@@ -469,6 +473,10 @@ main {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.runtime-panel .runtime-spotlight-header {
+  justify-content: flex-end;
 }
 
 .runtime-text {

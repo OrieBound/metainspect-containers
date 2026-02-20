@@ -50,6 +50,7 @@ phases:
     commands:
       - set -euo pipefail
       - echo "Pushing Docker image"
+      - if ! docker image inspect "${IMAGE_URI}" >/dev/null 2>&1; then echo "Docker image not built; skipping push/deploy"; exit 1; fi
       - docker push "${IMAGE_URI}"
 
       - echo "Deploying ECS-enabled stack update (DeployService=true)"
