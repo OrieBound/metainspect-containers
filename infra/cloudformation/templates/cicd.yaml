@@ -89,6 +89,7 @@ Resources:
                 Action:
                   - cloudformation:CreateChangeSet
                   - cloudformation:CreateStack
+                  - cloudformation:DeleteStack
                   - cloudformation:DeleteChangeSet
                   - cloudformation:DescribeChangeSet
                   - cloudformation:DescribeStackEvents
