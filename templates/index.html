@@ -49,25 +49,31 @@
             </div>
           </form>
           <p class="note">Supported formats: JPG, PNG. Max size configurable via <code>MAX_UPLOAD_BYTES</code>.</p>
-          <section class="runtime-spotlight" aria-labelledby="runtime-heading">
-            <div class="runtime-spotlight-header">
-              <h3 id="runtime-heading">Live Runtime Instance Info</h3>
-              <button id="runtimeRefresh" type="button" class="runtime-refresh">Refresh</button>
+          <section class="runtime-accordion accordion-item">
+            <button class="accordion-toggle" type="button" aria-expanded="true" aria-controls="accordion-runtime" id="accordion-runtime-btn">
+              Live Runtime Instance Info
+            </button>
+            <div class="accordion-content" id="accordion-runtime" role="region" aria-labelledby="accordion-runtime-btn">
+              <div class="project-panel runtime-panel">
+                <div class="runtime-spotlight-header">
+                  <button id="runtimeRefresh" type="button" class="runtime-refresh">Refresh</button>
+                </div>
+                <p class="runtime-text">
+                  Live runtime metadata highlights active task placement behind the load balancer for UAT and portfolio demos.
+                </p>
+                <div class="runtime-grid">
+                  <div class="runtime-row"><span class="runtime-label">Hostname</span><code id="runtime-hostname">-</code></div>
+                  <div class="runtime-row"><span class="runtime-label">Private IP</span><code id="runtime-private_ip">-</code></div>
+                  <div class="runtime-row"><span class="runtime-label">Availability Zone</span><code id="runtime-availability_zone">-</code></div>
+                  <div class="runtime-row"><span class="runtime-label">Cluster</span><code id="runtime-cluster">-</code></div>
+                  <div class="runtime-row"><span class="runtime-label">Task ARN</span><code id="runtime-task_arn">-</code></div>
+                  <div class="runtime-row"><span class="runtime-label">Container ID</span><code id="runtime-container_id">-</code></div>
+                  <div class="runtime-row"><span class="runtime-label">Source</span><code id="runtime-source">-</code></div>
+                  <div class="runtime-row"><span class="runtime-label">Updated</span><code id="runtime-timestamp_utc">-</code></div>
+                </div>
+                <p id="runtimeStatus" class="runtime-status" aria-live="polite">Runtime info not loaded yet.</p>
+              </div>
             </div>
-            <p class="runtime-text">
-              Live runtime metadata highlights active task placement behind the load balancer for UAT and portfolio demos.
-            </p>
-            <div class="runtime-grid">
-              <div class="runtime-row"><span class="runtime-label">Hostname</span><code id="runtime-hostname">-</code></div>
-              <div class="runtime-row"><span class="runtime-label">Private IP</span><code id="runtime-private_ip">-</code></div>
-              <div class="runtime-row"><span class="runtime-label">Availability Zone</span><code id="runtime-availability_zone">-</code></div>
-              <div class="runtime-row"><span class="runtime-label">Cluster</span><code id="runtime-cluster">-</code></div>
-              <div class="runtime-row"><span class="runtime-label">Task ARN</span><code id="runtime-task_arn">-</code></div>
-              <div class="runtime-row"><span class="runtime-label">Container ID</span><code id="runtime-container_id">-</code></div>
-              <div class="runtime-row"><span class="runtime-label">Source</span><code id="runtime-source">-</code></div>
-              <div class="runtime-row"><span class="runtime-label">Updated</span><code id="runtime-timestamp_utc">-</code></div>
-            </div>
-            <p id="runtimeStatus" class="runtime-status" aria-live="polite">Runtime info not loaded yet.</p>
           </section>
           <section class="accordion-group" aria-label="Project details">
             <article class="accordion-item">
@@ -243,6 +249,12 @@
 
         const accordionButtons = document.querySelectorAll('.accordion-toggle');
         accordionButtons.forEach(function (button) {
+          const targetId = button.getAttribute('aria-controls');
+          const content = targetId ? document.getElementById(targetId) : null;
+          if (content && button.getAttribute('aria-expanded') === 'true') {
+            content.style.maxHeight = content.scrollHeight + 'px';
+          }
+
           button.addEventListener('click', function () {
             const targetId = button.getAttribute('aria-controls');
             const content = targetId ? document.getElementById(targetId) : null;

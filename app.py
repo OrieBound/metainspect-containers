@@ -17,9 +17,11 @@ app = Flask(__name__, template_folder='templates')
 
 ALLOWED_EXT = {'jpg', 'jpeg', 'png'}
 MAX_UPLOAD_BYTES = int(os.getenv('MAX_UPLOAD_BYTES', '20971520'))
+app.config['MAX_CONTENT_LENGTH'] = MAX_UPLOAD_BYTES
 REDACTION_MODE = os.getenv('REDACTION_MODE', 'true').lower() in ('1', 'true', 'yes')
 DELETE_AFTER_PROCESS = os.getenv('DELETE_AFTER_PROCESS', 'true').lower() in ('1', 'true', 'yes')
 SHARED_DIR = os.getenv('SHARED_DIR', '/efs/shared')
+EXPOSE_RUNTIME_DETAILS = os.getenv('EXPOSE_RUNTIME_DETAILS', 'false').lower() in ('1', 'true', 'yes')
 
 # Comma-separated key fragments to redact from metadata.
 # This can be injected from AWS Secrets Manager as an env var in ECS/Lambda/etc.
@@ -112,7 +114,23 @@ def _runtime_metadata():
 
 @app.route('/runtime')
 def runtime():
-    return jsonify(_runtime_metadata()), 200
+    data = _runtime_metadata()
+    if EXPOSE_RUNTIME_DETAILS:
+        return jsonify(data), 200
+
+    safe = {
+        'hostname': data.get('hostname'),
+        'timestamp_utc': data.get('timestamp_utc'),
+        'source': data.get('source'),
+        'note': data.get('note', 'Runtime details are masked. Set EXPOSE_RUNTIME_DETAILS=true to show them.'),
+    }
+    return jsonify(safe), 200
+
+
+@app.errorhandler(413)
+def request_entity_too_large(_):
+    max_mb = MAX_UPLOAD_BYTES / (1024 * 1024)
+    return render_template('index.html', error=f'File too large. Maximum size is {max_mb:.1f} MB.'), 413
 
 
 def allowed_filename(filename):
@@ -129,7 +147,7 @@ def upload():
     if not allowed_filename(file.filename):
         return render_template('index.html', error='Unsupported file type. Please upload a JPG or PNG image.')
 
-    data = file.read()
+    data = file.stream.read(MAX_UPLOAD_BYTES + 1)
     if len(data) > MAX_UPLOAD_BYTES:
         max_mb = MAX_UPLOAD_BYTES / (1024 * 1024)
         return render_template('index.html', error=f'File too large. Maximum size is {max_mb:.1f} MB.')
