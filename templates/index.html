@@ -69,6 +69,7 @@
                   <div class="runtime-row"><span class="runtime-label">Task ARN</span><code id="runtime-task_arn">-</code></div>
                   <div class="runtime-row"><span class="runtime-label">Container ID</span><code id="runtime-container_id">-</code></div>
                   <div class="runtime-row"><span class="runtime-label">Source</span><code id="runtime-source">-</code></div>
+                  <div class="runtime-row"><span class="runtime-label">Region</span><code id="runtime-region">-</code></div>
                   <div class="runtime-row"><span class="runtime-label">Updated</span><code id="runtime-timestamp_utc">-</code></div>
                 </div>
                 <p id="runtimeStatus" class="runtime-status" aria-live="polite">Runtime info not loaded yet.</p>
@@ -280,6 +281,7 @@
           'task_arn',
           'container_id',
           'source',
+          'region',
           'timestamp_utc'
         ];
         const runtimeRefreshBtn = document.getElementById('runtimeRefresh');

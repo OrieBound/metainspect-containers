@@ -112,6 +112,39 @@ def _runtime_metadata():
     return out
 
 
+def _masked_token(value, prefix='masked'):
+    if not value:
+        return None
+    digest = hashlib.sha256(str(value).encode('utf-8')).hexdigest()[:8]
+    return f'{prefix}-{digest}'
+
+
+def _masked_private_ip(ip):
+    if not ip:
+        return None
+    parts = ip.split('.')
+    if len(parts) == 4:
+        return f'{parts[0]}.{parts[1]}.x.x'
+    return _masked_token(ip, prefix='ip')
+
+
+def _masked_az(az):
+    if not az:
+        return None
+    if len(az) >= 2 and az[-1].isalpha():
+        return f'{az[:-1]}?'
+    return _masked_token(az, prefix='az')
+
+
+def _masked_suffix(value, keep=8):
+    if not value:
+        return None
+    text = str(value)
+    if len(text) <= keep:
+        return text
+    return f'...{text[-keep:]}'
+
+
 @app.route('/runtime')
 def runtime():
     data = _runtime_metadata()
@@ -119,10 +152,19 @@ def runtime():
         return jsonify(data), 200
 
     safe = {
-        'hostname': data.get('hostname'),
+        'hostname': _masked_token(data.get('hostname'), prefix='host'),
+        'private_ip': _masked_private_ip(data.get('private_ip')),
+        'availability_zone': _masked_az(data.get('availability_zone')),
+        'cluster': _masked_token(data.get('cluster'), prefix='cluster'),
+        'task_arn': _masked_suffix(data.get('task_arn'), keep=14),
+        'container_id': _masked_suffix(data.get('container_id'), keep=12),
+        'region': AWS_REGION,
         'timestamp_utc': data.get('timestamp_utc'),
         'source': data.get('source'),
-        'note': data.get('note', 'Runtime details are masked. Set EXPOSE_RUNTIME_DETAILS=true to show them.'),
+        'note': data.get(
+            'note',
+            'Runtime details are portfolio-safe and masked. Set EXPOSE_RUNTIME_DETAILS=true to show full values.'
+        ),
     }
     return jsonify(safe), 200
 
