@@ -127,7 +127,6 @@ def runtime():
     safe = {
         'hostname': _masked_token(data.get('hostname'), prefix='host'),
         'availability_zone': data.get('availability_zone'),
-        'region': AWS_REGION,
         'timestamp_utc': data.get('timestamp_utc'),
         'source': data.get('source'),
         'note': data.get(
