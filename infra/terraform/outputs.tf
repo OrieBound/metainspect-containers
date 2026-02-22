@@ -27,5 +27,5 @@ output "efs_file_system_id" {
 }
 
 output "service_name" {
-  value = var.deploy_service ? module.ecs_service[0].service_name : null
+  value = one(module.ecs_service[*].service_name)
 }

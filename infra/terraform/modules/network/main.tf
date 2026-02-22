@@ -109,7 +109,7 @@ resource "aws_route_table_association" "service_b" {
 
 resource "aws_security_group" "vpce" {
   name_prefix = "${var.project_name}-vpce-"
-  description = "${var.project_name} VPC endpoint SG – allows HTTPS from within VPC"
+  description = "${var.project_name} VPC endpoint SG - allows HTTPS from within VPC"
   vpc_id      = aws_vpc.this.id
 
   ingress {
