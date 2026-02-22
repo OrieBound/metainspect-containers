@@ -10,6 +10,10 @@ This project demonstrates:
 - VPC Endpoints instead of NAT Gateways for cost-efficient private subnet connectivity
 - GitHub-triggered CodePipeline + CodeBuild CI/CD with a single-parameter IaC toggle
 
+## Architecture
+
+![MetaInspect AWS Architecture](docs/architecture.png)
+
 ## Core Stack
 
 - Python Flask + Gunicorn
