@@ -28,6 +28,13 @@ htmlcov/
 build/
 dist/
 
+# Terraform
+.terraform/
+*.tfplan
+*.tfstate
+*.tfstate.backup
+crash.log
+
 # OS/IDE noise
 .DS_Store
 Thumbs.db

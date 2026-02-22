@@ -6,34 +6,46 @@ This project demonstrates:
 - Secure image upload and metadata extraction (`JPG/JPEG/PNG`)
 - Metadata sanitization and configurable sensitive-field redaction
 - ECS Fargate deployment behind ALB with optional EFS shared storage
-- Nested CloudFormation IaC
-- GitHub-triggered CodePipeline + CodeBuild flow
+- Dual IaC support: **CloudFormation** (nested stacks) and **Terraform** (modular)
+- VPC Endpoints instead of NAT Gateways for cost-efficient private subnet connectivity
+- GitHub-triggered CodePipeline + CodeBuild CI/CD with a single-parameter IaC toggle
 
 ## Core Stack
 
 - Python Flask + Gunicorn
 - ExifTool for metadata extraction
 - Docker
-- AWS CloudFormation (nested stacks)
+- AWS CloudFormation (nested stacks) **or** Terraform (modules)
 - Amazon ECR, ECS Fargate, ALB, EFS, CloudWatch
 - AWS CodePipeline + CodeBuild + CodeConnections
+- VPC Endpoints (S3 Gateway, ECR, CloudWatch Logs)
 
 ## Repository Structure
 
 ```text
 .
-|-- app.py
+|-- app.py                       # Flask application
 |-- Dockerfile
-|-- buildspec.yml
-|-- templates/
-|-- static/
-`-- infra/
+|-- buildspec.yml                # CodeBuild spec (CloudFormation path)
+|-- buildspec-terraform.yml      # CodeBuild spec (Terraform path)
+|-- templates/                   # Flask HTML templates
+|-- static/                      # CSS assets
+    `-- infra/
     |-- cloudformation/
-    |   |-- root.yaml
-    |   |-- templates/
-    |   |-- params/
-    |   `-- scripts/
-    `-- diagrams/
+    |   |-- root.yaml            # Parent nested stack
+    |   |-- templates/           # Nested stack templates
+    |   |-- params/              # Environment parameter files
+    |   `-- scripts/             # Local deployment script
+    `-- terraform/
+        |-- main.tf              # Root module orchestrator
+        |-- variables.tf
+        |-- outputs.tf
+        |-- providers.tf
+        |-- backend.tf           # S3 remote state
+        |-- modules/             # One module per infrastructure concern
+        `-- environments/
+            `-- dev/
+                `-- terraform.tfvars
 ```
 
 ## Local Run
@@ -46,7 +58,7 @@ docker run --rm -p 8080:80 \
   metainspect:local
 ```
 
-Open the app at the mapped host port (`8080`).
+Open the app at `http://localhost:8080`.
 
 ## Runtime Endpoints
 
@@ -56,24 +68,87 @@ Open the app at the mapped host port (`8080`).
 - `GET /runtime` - live task/runtime metadata
 - `GET /sample-images/download` - redirect to presigned S3 sample ZIP
 
-## AWS Deployment Model
+## AWS Deployment
 
-Two-phase deployment is built into CI/CD:
+### IaC Toggle
 
-1. Deploy core infrastructure with `DeployService=false`
-2. Build and push image to ECR
-3. Update stack with `DeployService=true` and the image tag
+Both CloudFormation and Terraform produce identical infrastructure. The CI/CD pipeline (`cicd.yaml`) accepts a `BuildSpecFile` parameter to select which path to use:
 
-This avoids ECS service creation before the image exists in ECR.
+| IaC Tool       | BuildSpecFile               | Infrastructure Config          |
+|----------------|-----------------------------|--------------------------------|
+| CloudFormation | `buildspec.yml` (default)   | `infra/cloudformation/`        |
+| Terraform      | `buildspec-terraform.yml`   | `infra/terraform/`             |
 
-See `infra/cloudformation/README.md` for commands and parameter files.
+### Deploy CI/CD Pipeline
 
-## CI/CD Trigger Flow
+```bash
+aws cloudformation deploy \
+  --stack-name metainspect-cicd-dev \
+  --template-file infra/cloudformation/templates/cicd.yaml \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --region us-east-1 \
+  --parameter-overrides \
+    ProjectName=metainspect \
+    EnvironmentName=dev \
+    ConnectionArn=<your-codeconnections-arn> \
+    FullRepositoryId=<org/repo> \
+    BranchName=main \
+    StackName=metainspect-root-dev \
+    CloudFormationBucketName=<your-cfn-bucket> \
+    BuildSpecFile=buildspec.yml
+```
 
-1. Push to GitHub (`main`)
-2. CodePipeline Source stage pulls repository via CodeConnections
-3. CodeBuild runs `buildspec.yml`
-4. CloudFormation root stack is applied in bootstrap + service-enable phases
+Set `BuildSpecFile=buildspec-terraform.yml` to use the Terraform path instead.
+
+### Two-Phase Deployment
+
+Both IaC paths follow the same strategy:
+
+1. Deploy core infrastructure with service disabled (`DeployService=false` / `deploy_service=false`)
+2. Build and push Docker image to ECR
+3. Enable ECS service with the image tag (`DeployService=true` / `deploy_service=true`)
+
+This avoids ECS service creation before the container image exists in ECR.
+
+### Trigger Pipeline
+
+```bash
+aws codepipeline start-pipeline-execution --name metainspect-dev-pipeline --region us-east-1
+```
+
+Or push to the `main` branch -- the pipeline triggers automatically.
+
+### Tear Down
+
+**CloudFormation path:**
+```bash
+aws cloudformation delete-stack --stack-name metainspect-root-dev --region us-east-1
+```
+
+**Terraform path:**
+```bash
+cd infra/terraform
+terraform init
+terraform destroy -var-file="environments/dev/terraform.tfvars" -var="deploy_service=true"
+```
+
+Then delete the CI/CD stack (after emptying its artifacts bucket):
+```bash
+aws cloudformation delete-stack --stack-name metainspect-cicd-dev --region us-east-1
+```
+
+## Network Architecture
+
+Private ECS tasks access AWS services through VPC Endpoints instead of NAT Gateways:
+
+| Endpoint            | Type      | Purpose                          | Cost        |
+|---------------------|-----------|----------------------------------|-------------|
+| S3                  | Gateway   | ECR image layers, state storage  | Free        |
+| ECR API             | Interface | Container image pull API         | ~$7.20/mo   |
+| ECR DKR             | Interface | Container image pull (Docker)    | ~$7.20/mo   |
+| CloudWatch Logs     | Interface | Log shipping                     | ~$7.20/mo   |
+
+This saves ~$42/month compared to NAT Gateways while providing the same connectivity for AWS API access.
 
 ## Configuration
 
@@ -91,17 +166,10 @@ Application environment variables:
 
 ## Security Notes
 
-- No static AWS credentials are required in code.
-- In AWS, presigned URL generation should use ECS task role permissions.
+- No static AWS credentials in code.
+- Presigned URL generation uses ECS task role permissions.
 - Keep local secrets out of source control (`.env` files, cloud credentials, private keys).
 - Redaction mode is enabled by default to reduce exposure of sensitive EXIF fields.
-
-## Architecture Diagrams
-
-Draw.io source files are under:
-- `infra/diagrams/metainspect-aws-architecture.drawio`
-- `infra/diagrams/metainspect-aws-architecture-presentation.drawio`
-- `infra/diagrams/metainspect-aws-architecture-aws-icons.drawio`
 
 ## Additional Documentation
 
