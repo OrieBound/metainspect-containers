@@ -80,7 +80,7 @@ module "autoscaling" {
   count  = var.deploy_service ? 1 : 0
 
   cluster_name           = module.ecs_cluster.cluster_name
-  service_name           = module.ecs_service[0].service_name
+  service_name           = one(module.ecs_service[*].service_name)
   min_count              = var.min_count
   max_count              = var.max_count
   target_cpu_utilization = var.target_cpu_utilization

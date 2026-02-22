@@ -28,13 +28,13 @@ phases:
 
       - echo "Initializing Terraform"
       - cd "${TF_WORKING_DIR}"
-      - terraform init -input=false
+      - terraform init -input=false -no-color
 
       - echo "Planning bootstrap infrastructure (deploy_service=false)"
-      - terraform plan -input=false -var-file="environments/${ENVIRONMENT_NAME}/terraform.tfvars" -var="container_image_tag=${IMAGE_TAG}" -var="deploy_service=false" -out=bootstrap.tfplan
+      - terraform plan -no-color -input=false -var-file="environments/${ENVIRONMENT_NAME}/terraform.tfvars" -var="container_image_tag=${IMAGE_TAG}" -var="deploy_service=false" -out=bootstrap.tfplan
 
       - echo "Applying bootstrap infrastructure"
-      - terraform apply -input=false bootstrap.tfplan
+      - terraform apply -no-color -input=false bootstrap.tfplan
 
       - echo "Resolving ECR repository URI"
       - REPOSITORY_URI="$(terraform output -raw repository_uri)"
@@ -60,8 +60,8 @@ phases:
 
       - echo "Enabling ECS service (deploy_service=true)"
       - cd "${TF_WORKING_DIR}"
-      - terraform plan -input=false -var-file="environments/${ENVIRONMENT_NAME}/terraform.tfvars" -var="container_image_tag=${IMAGE_TAG}" -var="deploy_service=true" -out=service.tfplan
-      - terraform apply -input=false service.tfplan
+      - terraform plan -no-color -input=false -var-file="environments/${ENVIRONMENT_NAME}/terraform.tfvars" -var="container_image_tag=${IMAGE_TAG}" -var="deploy_service=true" -out=service.tfplan
+      - terraform apply -no-color -input=false service.tfplan
 
       - echo "Build and deploy complete"
 
