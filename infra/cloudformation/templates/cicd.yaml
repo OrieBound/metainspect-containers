@@ -26,6 +26,10 @@ Parameters:
   CloudFormationTemplatePrefix:
     Type: String
     Default: metainspect/templates
+  BuildSpecFile:
+    Type: String
+    Default: buildspec.yml
+    Description: Buildspec file to use. Set to buildspec-terraform.yml for Terraform pipeline.
   BuildImage:
     Type: String
     Default: aws/codebuild/standard:7.0
@@ -89,7 +93,9 @@ Resources:
                   - ecr:ListImages
                   - ecr:PutImageScanningConfiguration
                   - ecr:PutImageTagMutability
+                  - ecr:GetLifecyclePolicy
                   - ecr:PutLifecyclePolicy
+                  - ecr:DeleteLifecyclePolicy
                   - ecr:PutImage
                   - ecr:TagResource
                   - ecr:UntagResource
@@ -151,7 +157,7 @@ Resources:
         Type: CODEPIPELINE
       Source:
         Type: CODEPIPELINE
-        BuildSpec: buildspec.yml
+        BuildSpec: !Ref BuildSpecFile
       Environment:
         Type: LINUX_CONTAINER
         ComputeType: BUILD_GENERAL1_MEDIUM
