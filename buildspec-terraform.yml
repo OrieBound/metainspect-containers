@@ -1,0 +1,71 @@
+version: 0.2
+
+env:
+  shell: bash
+  variables:
+    TF_VERSION: "1.9.8"
+    TF_WORKING_DIR: "infra/terraform"
+
+phases:
+  install:
+    commands:
+      - set -euo pipefail
+      - echo "Installing Terraform ${TF_VERSION}"
+      - curl -fsSL "https://releases.hashicorp.com/terraform/${TF_VERSION}/terraform_${TF_VERSION}_linux_amd64.zip" -o /tmp/terraform.zip
+      - unzip -o /tmp/terraform.zip -d /usr/local/bin/
+      - terraform --version
+
+  pre_build:
+    commands:
+      - set -euo pipefail
+      - echo "Preparing deployment variables"
+      - ': "${AWS_REGION:?AWS_REGION is required}"'
+      - ': "${PROJECT_NAME:?PROJECT_NAME is required}"'
+      - ': "${ENVIRONMENT_NAME:?ENVIRONMENT_NAME is required}"'
+      - IMAGE_TAG="${CODEBUILD_RESOLVED_SOURCE_VERSION:0:12}"
+      - if [ -z "${IMAGE_TAG}" ] || [ "${IMAGE_TAG}" = "000000000000" ]; then IMAGE_TAG="v0.1.0"; fi
+      - 'echo "Image tag: ${IMAGE_TAG}"'
+
+      - echo "Initializing Terraform"
+      - cd "${TF_WORKING_DIR}"
+      - terraform init -input=false
+
+      - echo "Planning bootstrap infrastructure (deploy_service=false)"
+      - terraform plan -input=false -var-file="environments/${ENVIRONMENT_NAME}/terraform.tfvars" -var="container_image_tag=${IMAGE_TAG}" -var="deploy_service=false" -out=bootstrap.tfplan
+
+      - echo "Applying bootstrap infrastructure"
+      - terraform apply -input=false bootstrap.tfplan
+
+      - echo "Resolving ECR repository URI"
+      - REPOSITORY_URI="$(terraform output -raw repository_uri)"
+      - REGISTRY_HOST="${REPOSITORY_URI%%/*}"
+      - IMAGE_URI="${REPOSITORY_URI}:${IMAGE_TAG}"
+      - 'echo "ECR image URI: ${IMAGE_URI}"'
+
+      - cd "${CODEBUILD_SRC_DIR}"
+      - aws ecr get-login-password --region "${AWS_REGION}" | docker login --username AWS --password-stdin "${REGISTRY_HOST}"
+
+  build:
+    commands:
+      - set -euo pipefail
+      - echo "Building Docker image"
+      - docker build -t "${IMAGE_URI}" .
+
+  post_build:
+    commands:
+      - set -euo pipefail
+      - echo "Pushing Docker image"
+      - if ! docker image inspect "${IMAGE_URI}" >/dev/null 2>&1; then echo "Docker image not built; skipping push/deploy"; exit 1; fi
+      - docker push "${IMAGE_URI}"
+
+      - echo "Enabling ECS service (deploy_service=true)"
+      - cd "${TF_WORKING_DIR}"
+      - terraform plan -input=false -var-file="environments/${ENVIRONMENT_NAME}/terraform.tfvars" -var="container_image_tag=${IMAGE_TAG}" -var="deploy_service=true" -out=service.tfplan
+      - terraform apply -input=false service.tfplan
+
+      - echo "Build and deploy complete"
+
+artifacts:
+  files:
+    - '**/*'
+  discard-paths: no
