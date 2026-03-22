@@ -107,11 +107,7 @@ Preflight inputs you must set:
 
 1. **Nested templates bucket** — `cicd.yaml` **creates** `MetainspectCfnTemplatesBucket` and a **bucket policy** so **CloudFormation** can read synced nested YAML. No manual S3 setup for the pipeline path.
 2. Create/authorize a **CodeStar / CodeConnections** link to GitHub; status must be **Available**.
-3. Set **your** values: edit `infra/cloudformation/params/cicd-dev.json` *or* copy it to **`cicd-dev.local.json`** (gitignored; see `params/README.md`) and use that with `jq` below:
-   - `ConnectionArn` (console may show `arn:aws:codeconnections:...` or `arn:aws:codestar-connections:...`)
-   - **`FullRepositoryId`** — must be `owner/repo` only (e.g. `OrieBound/metainspect-containers`). **Do not** use `https://github.com/...`.
-   - `BranchName` if not `main`
-4. Point the connection at the GitHub repo/branch you want built (fork or upstream).
+3. Pass **your** `ConnectionArn` and **`FullRepositoryId`** (`owner/repo` only, not a GitHub URL) in **`--parameter-overrides`** on `aws cloudformation deploy` (see main `README.md`). Each AWS account has its own connection ARN.
 
 Flow implemented:
 
@@ -128,24 +124,16 @@ aws cloudformation deploy \
   --stack-name metainspect-cicd-dev \
   --template-file infra/cloudformation/templates/cicd.yaml \
   --capabilities CAPABILITY_NAMED_IAM \
+  --region us-east-1 \
   --parameter-overrides \
     ProjectName=metainspect \
     EnvironmentName=dev \
-    ConnectionArn=<codestar-connection-arn> \
+    ConnectionArn=<your-codeconnections-arn> \
     FullRepositoryId=<github-org-or-user>/<repo-name> \
     BranchName=main \
     StackName=metainspect-root-dev \
+    BuildSpecFile=buildspec.yml \
     CloudFormationTemplatePrefix=metainspect/templates
-```
-
-Or deploy directly from the params file:
-
-```bash
-aws cloudformation deploy \
-  --stack-name metainspect-cicd-dev \
-  --template-file infra/cloudformation/templates/cicd.yaml \
-  --capabilities CAPABILITY_NAMED_IAM \
-  --parameter-overrides "$(jq -r '.[] | "\(.ParameterKey)=\(.ParameterValue)"' infra/cloudformation/params/cicd-dev.local.json)"
 ```
 
 Notes:

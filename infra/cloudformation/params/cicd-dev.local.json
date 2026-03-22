@@ -1,0 +1,9 @@
+[
+  {"ParameterKey":"ProjectName","ParameterValue":"metainspect"},
+  {"ParameterKey":"EnvironmentName","ParameterValue":"dev"},
+  {"ParameterKey":"ConnectionArn","ParameterValue":"<your-codeconnections-arn>"},
+  {"ParameterKey":"FullRepositoryId","ParameterValue":"OrieBound/metainspect-containers"},
+  {"ParameterKey":"BranchName","ParameterValue":"main"},
+  {"ParameterKey":"StackName","ParameterValue":"metainspect-root-dev"},
+  {"ParameterKey":"CloudFormationTemplatePrefix","ParameterValue":"metainspect/templates"}
+]

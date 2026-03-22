@@ -94,11 +94,11 @@ Both CloudFormation and Terraform produce identical infrastructure. The CI/CD pi
 
 ### Deploy CI/CD Pipeline
 
-**Every AWS account is different.** You must supply **your own** GitHub connection ARN and repo id (nothing in the cloned repo can embed “the” correct `ConnectionArn` for someone else’s account):
+**Every AWS account has its own `ConnectionArn`.** Copy it from **your** console: **Developer Tools → Connections** → your GitHub connection → ARN (often `arn:aws:codeconnections:region:account:connection/...`). Paste it into the command below—do **not** commit real ARNs to git.
 
-1. In **your** AWS account: **Developer Tools → Connections** → create/authorize GitHub → copy **ConnectionArn** (often `arn:aws:codeconnections:...`).
-2. Set **`FullRepositoryId`** to **`owner/repo`** for the repo the pipeline should clone (your fork, e.g. `you/metainspect-containers`, or upstream `OrieBound/metainspect-containers`).
-3. Either pass those in `--parameter-overrides` below, or copy `infra/cloudformation/params/cicd-dev.json` to **`cicd-dev.local.json`**, edit placeholders there, and deploy with the `jq` command in `infra/cloudformation/params/README.md` (local file is **gitignored**).
+**`FullRepositoryId`** must be **`owner/repo`** only (e.g. `OrieBound/metainspect-containers`). Do **not** use `https://github.com/...`.
+
+This template **does not** use `CloudFormationBucketName`; nested templates go in a bucket the stack creates (output `CfnTemplatesBucketName`).
 
 ```bash
 aws cloudformation deploy \
@@ -106,6 +106,7 @@ aws cloudformation deploy \
   --template-file infra/cloudformation/templates/cicd.yaml \
   --capabilities CAPABILITY_NAMED_IAM \
   --region us-east-1 \
+  --profile <your-aws-profile> \
   --parameter-overrides \
     ProjectName=metainspect \
     EnvironmentName=dev \
@@ -116,7 +117,7 @@ aws cloudformation deploy \
     BuildSpecFile=buildspec.yml
 ```
 
-Optional: add `CloudFormationTemplatePrefix=metainspect/templates` if you do not use the default prefix. Use `--profile <name>` if you use AWS SSO / named profiles.
+Optional: append `CloudFormationTemplatePrefix=metainspect/templates` only if you changed the default in the template. Omit `--profile` if you use default credentials.
 
 After deploy, stack output **`CfnTemplatesBucketName`** is the bucket CodeBuild uses for nested templates (policy already allows CloudFormation read).
 

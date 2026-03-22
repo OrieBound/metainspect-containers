@@ -19,8 +19,6 @@ htmlcov/
 .env
 .env.*
 .aws/
-# CI/CD params with your ConnectionArn / account-specific values (see infra/cloudformation/params/README.md)
-infra/cloudformation/params/cicd-dev.local.json
 *.pem
 *.key
 *.p12
