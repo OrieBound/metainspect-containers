@@ -29,11 +29,26 @@ phases:
       - echo "Syncing nested templates to S3"
       - aws s3 sync infra/cloudformation/templates "s3://${CFN_BUCKET}/${CFN_TEMPLATE_PREFIX}" --delete --region "${AWS_REGION}"
 
-      - echo "Checking whether root stack already exists"
-      - if aws cloudformation describe-stacks --stack-name "${STACK_NAME}" --region "${AWS_REGION}" >/dev/null 2>&1; then STACK_EXISTS=true; else STACK_EXISTS=false; fi
-      - 'echo "Stack exists: ${STACK_EXISTS}"'
+      - echo "Checking whether root stack exists and is usable"
       - |
-        if [ "${STACK_EXISTS}" = "false" ]; then
+        if aws cloudformation describe-stacks --stack-name "${STACK_NAME}" --region "${AWS_REGION}" >/dev/null 2>&1; then
+          ROOT_STATUS="$(aws cloudformation describe-stacks --stack-name "${STACK_NAME}" --region "${AWS_REGION}" --query 'Stacks[0].StackStatus' --output text)"
+          echo "Root stack status: ${ROOT_STATUS}"
+          if [ "${ROOT_STATUS}" = "CREATE_COMPLETE" ] || [ "${ROOT_STATUS}" = "UPDATE_COMPLETE" ]; then
+            STACK_HEALTHY=true
+          else
+            echo "ERROR: Stack ${STACK_NAME} is ${ROOT_STATUS} (not healthy). Bootstrap is skipped for healthy stacks only."
+            echo "Delete the stack, then re-run the pipeline:"
+            echo "  aws cloudformation delete-stack --stack-name ${STACK_NAME} --region ${AWS_REGION}"
+            exit 1
+          fi
+        else
+          STACK_HEALTHY=false
+          echo "Root stack not found; will run bootstrap deploy"
+        fi
+      - 'echo "Stack healthy (skip bootstrap): ${STACK_HEALTHY}"'
+      - |
+        if [ "${STACK_HEALTHY}" = "false" ]; then
           echo "First-time bootstrap deploy (DeployService=false)"
           aws cloudformation deploy \
             --stack-name "${STACK_NAME}" \

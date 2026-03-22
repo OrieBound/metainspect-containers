@@ -151,7 +151,7 @@ Resources:
   EndpointSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: !Sub '${ProjectName} VPC endpoint SG – allows HTTPS from within VPC'
+      GroupDescription: !Sub '${ProjectName} VPC endpoint SG - allows HTTPS from within VPC'
       VpcId: !Ref Vpc
       SecurityGroupIngress:
         - IpProtocol: tcp
