@@ -23,7 +23,7 @@ This directory keeps infrastructure-as-code artifacts for MetaInspect.
 ## Suggested target resources
 
 - ECR repository
-- VPC + public/private subnets + route tables + NAT gateways
+- VPC + public/service subnets + route tables + **VPC endpoints** (S3 gateway, ECR, CloudWatch Logs — no NAT gateways in this design)
 - ECS cluster
 - Task definition
 - ECS service
@@ -105,13 +105,13 @@ Files:
 
 Preflight inputs you must set:
 
-1. Create/authorize a CodeStar Connection to GitHub in AWS Developer Tools.
-2. Update `infra/cloudformation/params/cicd-dev.json`:
-   - `ConnectionArn`
-   - `FullRepositoryId` (already set to `OrieBound/metainspect-containers`)
+1. **Nested templates bucket** — `cicd.yaml` **creates** `MetainspectCfnTemplatesBucket` and a **bucket policy** so **CloudFormation** can read synced nested YAML. No manual S3 setup for the pipeline path.
+2. Create/authorize a **CodeStar / CodeConnections** link to GitHub; status must be **Available**.
+3. Set **your** values: edit `infra/cloudformation/params/cicd-dev.json` *or* copy it to **`cicd-dev.local.json`** (gitignored; see `params/README.md`) and use that with `jq` below:
+   - `ConnectionArn` (console may show `arn:aws:codeconnections:...` or `arn:aws:codestar-connections:...`)
+   - **`FullRepositoryId`** — must be `owner/repo` only (e.g. `OrieBound/metainspect-containers`). **Do not** use `https://github.com/...`.
    - `BranchName` if not `main`
-   - `CloudFormationBucketName` if different from your template bucket
-3. Push this repository to the matching GitHub repository/branch.
+4. Point the connection at the GitHub repo/branch you want built (fork or upstream).
 
 Flow implemented:
 
@@ -135,7 +135,6 @@ aws cloudformation deploy \
     FullRepositoryId=<github-org-or-user>/<repo-name> \
     BranchName=main \
     StackName=metainspect-root-dev \
-    CloudFormationBucketName=cloudformation-oriebound \
     CloudFormationTemplatePrefix=metainspect/templates
 ```
 
@@ -146,10 +145,11 @@ aws cloudformation deploy \
   --stack-name metainspect-cicd-dev \
   --template-file infra/cloudformation/templates/cicd.yaml \
   --capabilities CAPABILITY_NAMED_IAM \
-  --parameter-overrides "$(jq -r '.[] | "\(.ParameterKey)=\(.ParameterValue)"' infra/cloudformation/params/cicd-dev.json)"
+  --parameter-overrides "$(jq -r '.[] | "\(.ParameterKey)=\(.ParameterValue)"' infra/cloudformation/params/cicd-dev.local.json)"
 ```
 
 Notes:
 
-- The CodeStar Connection must already be created and authorized for your GitHub repo.
+- The GitHub connection must already be created and authorized for your GitHub repo.
 - The CodeBuild role in `cicd.yaml` is intentionally broad for bootstrap simplicity; tighten IAM scopes after initial validation.
+- If the root stack `StackName` is left in **`ROLLBACK_COMPLETE`**, delete it in CloudFormation before relying on a fresh bootstrap from the pipeline.

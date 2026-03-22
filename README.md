@@ -12,7 +12,7 @@ This project demonstrates:
 
 ## Architecture
 
-![MetaInspect AWS Architecture](docs/architecture.png)
+![MetaInspect AWS Architecture](docs/architecture.jpg)
 
 ## Core Stack
 
@@ -74,6 +74,15 @@ Open the app at `http://localhost:8080`.
 
 ## AWS Deployment
 
+### Prerequisites (avoid common first-run failures)
+
+1. **Nested template bucket (handled by IaC)** — The `cicd.yaml` stack **creates** a dedicated S3 bucket for nested templates and attaches a **bucket policy** so **CloudFormation** can `GetObject` on the synced YAML. You do **not** need to pre-create that bucket or edit S3 policies by hand (unless you use a **fork** of an older template that still required `CloudFormationBucketName`).
+2. **`FullRepositoryId`** — Use **`owner/repo`** only (example: `OrieBound/metainspect-containers`). Do **not** use a full GitHub URL; CodePipeline will fail the Source stage (e.g. *No Branch [main] found*).
+3. **GitHub connection** — In **Developer Tools → Connections**, the connection must be **Available** (finish the GitHub authorization if it is still **Pending**).
+4. **Branch name** — Must exist on the repo (`main` vs `master`).
+5. **Region** — Deploy the CI/CD stack and run the pipeline in the same region you expect for the app (examples use **`us-east-1`**).
+6. **Failed root stack** — If `metainspect-root-dev` (or your `StackName`) ends in **`ROLLBACK_COMPLETE`**, **delete** that stack before expecting a clean bootstrap on the next run.
+
 ### IaC Toggle
 
 Both CloudFormation and Terraform produce identical infrastructure. The CI/CD pipeline (`cicd.yaml`) accepts a `BuildSpecFile` parameter to select which path to use:
@@ -84,6 +93,12 @@ Both CloudFormation and Terraform produce identical infrastructure. The CI/CD pi
 | Terraform      | `buildspec-terraform.yml`   | `infra/terraform/`             |
 
 ### Deploy CI/CD Pipeline
+
+**Every AWS account is different.** You must supply **your own** GitHub connection ARN and repo id (nothing in the cloned repo can embed “the” correct `ConnectionArn` for someone else’s account):
+
+1. In **your** AWS account: **Developer Tools → Connections** → create/authorize GitHub → copy **ConnectionArn** (often `arn:aws:codeconnections:...`).
+2. Set **`FullRepositoryId`** to **`owner/repo`** for the repo the pipeline should clone (your fork, e.g. `you/metainspect-containers`, or upstream `OrieBound/metainspect-containers`).
+3. Either pass those in `--parameter-overrides` below, or copy `infra/cloudformation/params/cicd-dev.json` to **`cicd-dev.local.json`**, edit placeholders there, and deploy with the `jq` command in `infra/cloudformation/params/README.md` (local file is **gitignored**).
 
 ```bash
 aws cloudformation deploy \
@@ -98,9 +113,12 @@ aws cloudformation deploy \
     FullRepositoryId=<org/repo> \
     BranchName=main \
     StackName=metainspect-root-dev \
-    CloudFormationBucketName=<your-cfn-bucket> \
     BuildSpecFile=buildspec.yml
 ```
+
+Optional: add `CloudFormationTemplatePrefix=metainspect/templates` if you do not use the default prefix. Use `--profile <name>` if you use AWS SSO / named profiles.
+
+After deploy, stack output **`CfnTemplatesBucketName`** is the bucket CodeBuild uses for nested templates (policy already allows CloudFormation read).
 
 Set `BuildSpecFile=buildspec-terraform.yml` to use the Terraform path instead.
 

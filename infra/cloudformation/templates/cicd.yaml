@@ -20,9 +20,6 @@ Parameters:
   StackName:
     Type: String
     Default: metainspect-root-dev
-  CloudFormationBucketName:
-    Type: String
-    Description: S3 bucket name used for nested CloudFormation templates.
   CloudFormationTemplatePrefix:
     Type: String
     Default: metainspect/templates
@@ -40,6 +37,42 @@ Resources:
     Properties:
       VersioningConfiguration:
         Status: Enabled
+
+  # Nested stack TemplateURL points at HTTPS S3 objects. CodeBuild can sync objects, but
+  # CloudFormation's service still needs s3:GetObject via bucket policy. This bucket is
+  # created here so users do not pre-provision S3 or hand-edit policies.
+  MetainspectCfnTemplatesBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        IgnorePublicAcls: true
+        BlockPublicPolicy: true
+        RestrictPublicBuckets: true
+
+  MetainspectCfnTemplatesBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref MetainspectCfnTemplatesBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowCloudFormationReadNestedTemplates
+            Effect: Allow
+            Principal:
+              Service: cloudformation.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub
+              - 'arn:aws:s3:::${Bucket}/${Prefix}/*'
+              - Bucket: !Ref MetainspectCfnTemplatesBucket
+                Prefix: !Ref CloudFormationTemplatePrefix
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
 
   CodeBuildRole:
     Type: AWS::IAM::Role
@@ -71,8 +104,8 @@ Resources:
                 Resource:
                   - !Sub 'arn:aws:s3:::${PipelineArtifactsBucket}'
                   - !Sub 'arn:aws:s3:::${PipelineArtifactsBucket}/*'
-                  - !Sub 'arn:aws:s3:::${CloudFormationBucketName}'
-                  - !Sub 'arn:aws:s3:::${CloudFormationBucketName}/*'
+                  - !Sub 'arn:aws:s3:::${MetainspectCfnTemplatesBucket}'
+                  - !Sub 'arn:aws:s3:::${MetainspectCfnTemplatesBucket}/*'
               - Effect: Allow
                 Action:
                   - ecr:GetAuthorizationToken
@@ -203,6 +236,7 @@ Resources:
               - Effect: Allow
                 Action:
                   - codestar-connections:UseConnection
+                  - codeconnections:UseConnection
                 Resource: !Ref ConnectionArn
 
   Pipeline:
@@ -248,7 +282,7 @@ Resources:
                     {"name":"STACK_NAME","value":"${StackName}","type":"PLAINTEXT"},
                     {"name":"PROJECT_NAME","value":"${ProjectName}","type":"PLAINTEXT"},
                     {"name":"ENVIRONMENT_NAME","value":"${EnvironmentName}","type":"PLAINTEXT"},
-                    {"name":"CFN_BUCKET","value":"${CloudFormationBucketName}","type":"PLAINTEXT"},
+                    {"name":"CFN_BUCKET","value":"${MetainspectCfnTemplatesBucket}","type":"PLAINTEXT"},
                     {"name":"CFN_TEMPLATE_PREFIX","value":"${CloudFormationTemplatePrefix}","type":"PLAINTEXT"}
                   ]
               RunOrder: 1
@@ -260,3 +294,6 @@ Outputs:
     Value: !Ref CodeBuildProject
   ArtifactsBucketName:
     Value: !Ref PipelineArtifactsBucket
+  CfnTemplatesBucketName:
+    Description: Bucket where nested templates are synced; includes policy for CloudFormation GetObject.
+    Value: !Ref MetainspectCfnTemplatesBucket
