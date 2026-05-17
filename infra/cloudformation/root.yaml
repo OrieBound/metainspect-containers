@@ -129,6 +129,7 @@ Resources:
   AutoScalingStack:
     Type: AWS::CloudFormation::Stack
     Condition: DeployServiceCondition
+    DependsOn: EcsServiceStack
     Properties:
       TemplateURL: !Sub '${TemplateBaseUrl}/autoscaling.yaml'
       Parameters:
