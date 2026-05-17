@@ -135,7 +135,7 @@ Resources:
                   - s3:PutBucketEncryption
                   - s3:PutBucketVersioning
                   - s3:GetBucketLocation
-                Resource: !Sub 'arn:aws:s3:::${ProjectName}-sample-${EnvironmentName}-*'
+                Resource: '*'
               - Effect: Allow
                 Action:
                   - ecr:GetAuthorizationToken
