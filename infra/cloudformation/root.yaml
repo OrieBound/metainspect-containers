@@ -85,6 +85,14 @@ Resources:
         ContainerPort: '80'
         HealthCheckPath: /health
 
+  SampleImagesStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub '${TemplateBaseUrl}/sample-images.yaml'
+      Parameters:
+        ProjectName: !Ref ProjectName
+        EnvironmentName: !Ref EnvironmentName
+
   EfsStack:
     Type: AWS::CloudFormation::Stack
     Properties:
@@ -124,7 +132,9 @@ Resources:
         FileSystemId: !GetAtt EfsStack.Outputs.FileSystemId
         AccessPointId: !GetAtt EfsStack.Outputs.AccessPointId
         LogRetentionDays: '14'
-        SampleImagesObjectArn: arn:aws:s3:::demo1-oriebound/metainspect/sample_images_metadata.zip
+        SampleImagesBucket: !GetAtt SampleImagesStack.Outputs.SampleImagesBucketName
+        SampleImagesKey: !GetAtt SampleImagesStack.Outputs.SampleImagesKey
+        SampleImagesObjectArn: !GetAtt SampleImagesStack.Outputs.SampleImagesObjectArn
 
   AutoScalingStack:
     Type: AWS::CloudFormation::Stack
@@ -156,3 +166,7 @@ Outputs:
   ServiceName:
     Condition: DeployServiceCondition
     Value: !GetAtt EcsServiceStack.Outputs.ServiceName
+  SampleImagesBucketName:
+    Value: !GetAtt SampleImagesStack.Outputs.SampleImagesBucketName
+  SampleImagesObjectArn:
+    Value: !GetAtt SampleImagesStack.Outputs.SampleImagesObjectArn

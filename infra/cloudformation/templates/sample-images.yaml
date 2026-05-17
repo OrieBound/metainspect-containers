@@ -1,0 +1,34 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: S3 bucket for MetaInspect downloadable sample images ZIP (same account as ECS).
+
+Parameters:
+  ProjectName:
+    Type: String
+  EnvironmentName:
+    Type: String
+  SampleImagesKey:
+    Type: String
+    Default: metainspect/sample_images_metadata.zip
+
+Resources:
+  SampleImagesBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${ProjectName}-sample-${EnvironmentName}-${AWS::AccountId}'
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        IgnorePublicAcls: true
+        BlockPublicPolicy: true
+        RestrictPublicBuckets: true
+
+Outputs:
+  SampleImagesBucketName:
+    Value: !Ref SampleImagesBucket
+  SampleImagesKey:
+    Value: !Ref SampleImagesKey
+  SampleImagesObjectArn:
+    Value: !Sub 'arn:aws:s3:::${SampleImagesBucket}/${SampleImagesKey}'

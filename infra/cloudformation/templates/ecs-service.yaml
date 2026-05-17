@@ -47,9 +47,15 @@ Parameters:
     Default: ''
   LogRetentionDays:
     Type: Number
+  SampleImagesBucket:
+    Type: String
+    Description: S3 bucket for downloadable sample images ZIP.
+  SampleImagesKey:
+    Type: String
+    Description: S3 object key for sample images ZIP.
   SampleImagesObjectArn:
     Type: String
-    Description: S3 object ARN for downloadable sample images ZIP.
+    Description: S3 object ARN for IAM s3:GetObject on the sample ZIP.
 
 Conditions:
   UseEfsCondition: !Equals [!Ref EnableEfs, 'true']
@@ -144,6 +150,10 @@ Resources:
               Value: !Ref DeleteAfterProcess
             - Name: SHARED_DIR
               Value: /efs/shared
+            - Name: SAMPLE_IMAGES_S3_BUCKET
+              Value: !Ref SampleImagesBucket
+            - Name: SAMPLE_IMAGES_S3_KEY
+              Value: !Ref SampleImagesKey
           LogConfiguration:
             LogDriver: awslogs
             Options:
@@ -178,6 +188,10 @@ Resources:
               Value: !Ref DeleteAfterProcess
             - Name: SHARED_DIR
               Value: /tmp/metainspect
+            - Name: SAMPLE_IMAGES_S3_BUCKET
+              Value: !Ref SampleImagesBucket
+            - Name: SAMPLE_IMAGES_S3_KEY
+              Value: !Ref SampleImagesKey
           LogConfiguration:
             LogDriver: awslogs
             Options:

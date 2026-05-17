@@ -74,6 +74,22 @@ Resources:
               StringEquals:
                 aws:SourceAccount: !Ref AWS::AccountId
 
+  # Terraform remote state (each account gets its own bucket; CodeBuild passes bucket/key at init).
+  MetainspectTerraformStateBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        IgnorePublicAcls: true
+        BlockPublicPolicy: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+
   CodeBuildRole:
     Type: AWS::IAM::Role
     Properties:
@@ -106,6 +122,20 @@ Resources:
                   - !Sub 'arn:aws:s3:::${PipelineArtifactsBucket}/*'
                   - !Sub 'arn:aws:s3:::${MetainspectCfnTemplatesBucket}'
                   - !Sub 'arn:aws:s3:::${MetainspectCfnTemplatesBucket}/*'
+                  - !Sub 'arn:aws:s3:::${MetainspectTerraformStateBucket}'
+                  - !Sub 'arn:aws:s3:::${MetainspectTerraformStateBucket}/*'
+                  - !Sub 'arn:aws:s3:::${ProjectName}-sample-${EnvironmentName}-*'
+                  - !Sub 'arn:aws:s3:::${ProjectName}-sample-${EnvironmentName}-*/*'
+              - Effect: Allow
+                Action:
+                  - s3:CreateBucket
+                  - s3:DeleteBucket
+                  - s3:PutBucketTagging
+                  - s3:PutBucketPublicAccessBlock
+                  - s3:PutBucketEncryption
+                  - s3:PutBucketVersioning
+                  - s3:GetBucketLocation
+                Resource: !Sub 'arn:aws:s3:::${ProjectName}-sample-${EnvironmentName}-*'
               - Effect: Allow
                 Action:
                   - ecr:GetAuthorizationToken
@@ -283,7 +313,9 @@ Resources:
                     {"name":"PROJECT_NAME","value":"${ProjectName}","type":"PLAINTEXT"},
                     {"name":"ENVIRONMENT_NAME","value":"${EnvironmentName}","type":"PLAINTEXT"},
                     {"name":"CFN_BUCKET","value":"${MetainspectCfnTemplatesBucket}","type":"PLAINTEXT"},
-                    {"name":"CFN_TEMPLATE_PREFIX","value":"${CloudFormationTemplatePrefix}","type":"PLAINTEXT"}
+                    {"name":"CFN_TEMPLATE_PREFIX","value":"${CloudFormationTemplatePrefix}","type":"PLAINTEXT"},
+                    {"name":"TF_STATE_BUCKET","value":"${MetainspectTerraformStateBucket}","type":"PLAINTEXT"},
+                    {"name":"TF_STATE_KEY","value":"${ProjectName}/terraform/${EnvironmentName}/terraform.tfstate","type":"PLAINTEXT"}
                   ]
               RunOrder: 1
 
@@ -297,3 +329,6 @@ Outputs:
   CfnTemplatesBucketName:
     Description: Bucket where nested templates are synced; includes policy for CloudFormation GetObject.
     Value: !Ref MetainspectCfnTemplatesBucket
+  TerraformStateBucketName:
+    Description: S3 bucket for Terraform remote state (CodeBuild TF_STATE_BUCKET).
+    Value: !Ref MetainspectTerraformStateBucket

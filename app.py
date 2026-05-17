@@ -35,8 +35,8 @@ REDACT_KEY_PARTS = [
     if x.strip()
 ]
 REDACTED_VALUE = os.getenv('REDACTED_VALUE', '[REDACTED]')
-SAMPLE_IMAGES_S3_BUCKET = os.getenv('SAMPLE_IMAGES_S3_BUCKET', 'demo1-oriebound')
-SAMPLE_IMAGES_S3_KEY = os.getenv('SAMPLE_IMAGES_S3_KEY', 'metainspect/sample_images_metadata.zip')
+SAMPLE_IMAGES_S3_BUCKET = os.getenv('SAMPLE_IMAGES_S3_BUCKET', '')
+SAMPLE_IMAGES_S3_KEY = os.getenv('SAMPLE_IMAGES_S3_KEY', '')
 SAMPLE_IMAGES_URL_TTL = int(os.getenv('SAMPLE_IMAGES_URL_TTL', '28800'))
 AWS_REGION = os.getenv('AWS_REGION', 'us-east-1')
 
